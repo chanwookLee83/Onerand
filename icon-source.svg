@@ -1,0 +1,78 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="35%" r="75%">
+      <stop offset="0%" stop-color="#1f4a5f"/>
+      <stop offset="55%" stop-color="#173f52"/>
+      <stop offset="100%" stop-color="#0a1c24"/>
+    </radialGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f6d98a"/>
+      <stop offset="45%" stop-color="#e0b863"/>
+      <stop offset="100%" stop-color="#a8762f"/>
+    </linearGradient>
+    <linearGradient id="goldGradLight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fff3d6"/>
+      <stop offset="100%" stop-color="#e0b863"/>
+    </linearGradient>
+    <radialGradient id="gemGrad" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#ff9fd6"/>
+      <stop offset="45%" stop-color="#e0457a"/>
+      <stop offset="100%" stop-color="#8a1f4f"/>
+    </radialGradient>
+  </defs>
+
+  <!-- background -->
+  <rect width="512" height="512" rx="96" fill="url(#bgGrad)"/>
+
+  <!-- subtle vignette ring -->
+  <rect x="14" y="14" width="484" height="484" rx="88" fill="none" stroke="#0e2733" stroke-width="6" opacity="0.5"/>
+
+  <!-- treasure chest body -->
+  <g>
+    <!-- chest base -->
+    <rect x="116" y="276" width="280" height="148" rx="18" fill="url(#goldGrad)" stroke="#5b3d18" stroke-width="6"/>
+    <!-- wood plank lines -->
+    <line x1="116" y1="330" x2="396" y2="330" stroke="#5b3d18" stroke-width="5" opacity="0.5"/>
+    <line x1="116" y1="378" x2="396" y2="378" stroke="#5b3d18" stroke-width="5" opacity="0.5"/>
+    <line x1="186" y1="276" x2="186" y2="424" stroke="#5b3d18" stroke-width="4" opacity="0.35"/>
+    <line x1="256" y1="276" x2="256" y2="424" stroke="#5b3d18" stroke-width="4" opacity="0.35"/>
+    <line x1="326" y1="276" x2="326" y2="424" stroke="#5b3d18" stroke-width="4" opacity="0.35"/>
+
+    <!-- chest lid (open, tilted back) -->
+    <path d="M104 276 C104 198 150 150 256 150 C362 150 408 198 408 276 L372 276 C372 220 332 188 256 188 C180 188 140 220 140 276 Z"
+          fill="url(#goldGradLight)" stroke="#5b3d18" stroke-width="6"/>
+
+    <!-- lid bands -->
+    <path d="M150 230 C170 205 210 192 256 192 C302 192 342 205 362 230" fill="none" stroke="#a8762f" stroke-width="5" opacity="0.55"/>
+
+    <!-- front lock plate -->
+    <rect x="226" y="270" width="60" height="46" rx="8" fill="#8a6a3c" stroke="#5b3d18" stroke-width="5"/>
+    <circle cx="256" cy="293" r="9" fill="#3a2a14"/>
+
+    <!-- chest corner studs -->
+    <circle cx="132" cy="294" r="7" fill="#fff3d6" opacity="0.85"/>
+    <circle cx="380" cy="294" r="7" fill="#fff3d6" opacity="0.85"/>
+    <circle cx="132" cy="406" r="7" fill="#fff3d6" opacity="0.85"/>
+    <circle cx="380" cy="406" r="7" fill="#fff3d6" opacity="0.85"/>
+  </g>
+
+  <!-- gem popping out of chest -->
+  <g>
+    <path d="M256 150 L296 196 L256 240 L216 196 Z" fill="url(#gemGrad)" stroke="#6b1238" stroke-width="4"/>
+    <path d="M256 150 L296 196 L268 196 Z" fill="#ffd0e8" opacity="0.55"/>
+    <path d="M216 196 L256 240 L240 196 Z" fill="#6b1238" opacity="0.4"/>
+  </g>
+
+  <!-- sparkle accents -->
+  <g fill="#fdf0c8">
+    <path d="M150 130 l6 16 16 6 -16 6 -6 16 -6 -16 -16 -6 16 -6 z" opacity="0.9"/>
+    <path d="M388 168 l4 11 11 4 -11 4 -4 11 -4 -11 -11 -4 11 -4 z" opacity="0.75"/>
+    <path d="M120 360 l4 10 10 4 -10 4 -4 10 -4 -10 -10 -4 10 -4 z" opacity="0.6"/>
+  </g>
+
+  <!-- crossed cutlasses behind chest, subtle -->
+  <g opacity="0.18" stroke="#fdf0c8" stroke-width="10" stroke-linecap="round">
+    <line x1="90" y1="430" x2="300" y2="130"/>
+    <line x1="422" y1="430" x2="212" y2="130"/>
+  </g>
+</svg>
