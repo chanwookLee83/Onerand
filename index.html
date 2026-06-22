@@ -509,15 +509,57 @@
     gap:10px;
     background:rgba(255,255,255,0.45);
     border:1px solid rgba(138,106,60,0.3);
+    border-left:4px solid var(--gold);
     border-radius:10px;
     padding:9px 12px;
     cursor:pointer;
   }
   .usedin-item:active{ background:rgba(255,255,255,0.75); }
   .usedin-text{ flex:1; min-width:0; }
+  .usedin-name-row{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
   .usedin-name{ font-size:13px; font-weight:700; }
-  .usedin-via{ font-size:11px; color:var(--text-dim); margin-top:1px; }
+  .usedin-via{ font-size:11px; color:var(--text-dim); margin-top:2px; }
   .arrow-right{ color:var(--text-dim); font-size:13px; }
+
+  .usedin-grade-tag{
+    font-size:9px;
+    font-weight:700;
+    padding:2px 7px;
+    border-radius:5px;
+    letter-spacing:0.2px;
+    white-space:nowrap;
+    flex:none;
+    background:var(--sea);
+    color:var(--gold-bright);
+  }
+  /* 등급별 역추적 아이템 좌측 보더 + 배지 색상 (카드 색상 체계와 동일) */
+  .usedin-item.grade-anhun{ border-left-color:#8a99a3; }
+  .usedin-item.grade-teukbyul{ border-left-color:#d98c2e; }
+  .usedin-item.grade-huhn{ border-left-color:#6fa46b; }
+  .usedin-item.grade-huigwi{ border-left-color:#a652a3; }
+  .usedin-item.grade-rare{ border-left-color:#c0507a; }
+  .usedin-item.grade-change{ border-left-color:#0e9488; }
+  .usedin-item.grade-legend{ border-left-color:#e74c3c; }
+  .usedin-item.grade-hidden{ border-left-color:#2bb5b8; }
+  .usedin-item.grade-distortion{ border-left-color:#9b2fc9; }
+  .usedin-item.grade-limited{ border-left-color:#d6336c; }
+  .usedin-item.grade-transcend{ border-left-color:#4c4fd6; }
+  .usedin-item.grade-immortal{ border-left-color:#b8860b; }
+  .usedin-item.grade-eternal{ border-left-color:#0d9276; }
+
+  .usedin-grade-tag.grade-anhun{ background:#3f4d56; color:#dde4e8; }
+  .usedin-grade-tag.grade-teukbyul{ background:#7a4a14; color:#ffd9a0; }
+  .usedin-grade-tag.grade-huhn{ background:#3a5a38; color:#d6f0d2; }
+  .usedin-grade-tag.grade-huigwi{ background:#5e1f5c; color:#f0c4ee; }
+  .usedin-grade-tag.grade-rare{ background:#6e2c45; color:#f5cbdb; }
+  .usedin-grade-tag.grade-change{ background:#0b6b62; color:#d2fff5; }
+  .usedin-grade-tag.grade-legend{ background:#7a1f15; color:#ffcfc7; }
+  .usedin-grade-tag.grade-hidden{ background:#114e4f; color:#aef0ee; }
+  .usedin-grade-tag.grade-distortion{ background:linear-gradient(135deg,#6b21a8,#c026a3); color:#fbe8ff; }
+  .usedin-grade-tag.grade-limited{ background:linear-gradient(135deg,#a3174f,#e8487a); color:#ffe4ee; }
+  .usedin-grade-tag.grade-transcend{ background:linear-gradient(135deg,#2e2f8c,#6366f1); color:#e8e9ff; }
+  .usedin-grade-tag.grade-immortal{ background:linear-gradient(135deg,#8a5a00,#d4a017); color:#fff6dd; }
+  .usedin-grade-tag.grade-eternal{ background:linear-gradient(135deg,#04604a,#10b981,#d4a017); color:#eafff6; }
 
   .update-note{
     text-align:right;
@@ -702,7 +744,7 @@ const nameToId = {};
 CHARACTER_DATA.forEach(c => { nameToId[c.name] = c.id; });
 
 // 각 캐릭터별로 "어디에 쓰이는지" 역인덱스 구성
-const usedInIndex = {}; // materialName -> [{id, name, via: '다른재료'}]
+const usedInIndex = {}; // materialName -> [{id, name, via: '다른재료', grade}]
 CHARACTER_DATA.forEach(c => {
   (c.materials || []).forEach(matName => {
     if (!usedInIndex[matName]) usedInIndex[matName] = [];
@@ -710,6 +752,7 @@ CHARACTER_DATA.forEach(c => {
     usedInIndex[matName].push({
       resultId: c.id,
       resultName: c.name,
+      resultGrade: c.grade,
       via: others.length ? others.join(' + ') : null
     });
   });
@@ -888,15 +931,23 @@ function openModal(id) {
 
   // 역추적: 이 캐릭터가 재료로 쓰이는 조합들
   const usedinList = document.getElementById('usedinList');
-  const usages = usedInIndex[c.name] || [];
+  const usages = (usedInIndex[c.name] || []).slice().sort((a, b) => {
+    const oa = (GRADE_STYLE[a.resultGrade] && GRADE_STYLE[a.resultGrade].order) || 0;
+    const ob = (GRADE_STYLE[b.resultGrade] && GRADE_STYLE[b.resultGrade].order) || 0;
+    return ob - oa; // 상위 등급이 위로
+  });
   if (usages.length === 0) {
     usedinList.innerHTML = `<span class="none-text">다른 조합의 재료로 사용되지 않습니다</span>`;
   } else {
     usedinList.innerHTML = usages.map(u => {
+      const gCls = gradeClass(u.resultGrade);
       return `
-        <div class="usedin-item" data-id="${u.resultId}">
+        <div class="usedin-item ${gCls}" data-id="${u.resultId}">
           <span class="usedin-text">
-            <div class="usedin-name">${escapeHtml(u.resultName)}</div>
+            <div class="usedin-name-row">
+              <span class="usedin-grade-tag ${gCls}">${escapeHtml(u.resultGrade || '')}</span>
+              <span class="usedin-name">${escapeHtml(u.resultName)}</span>
+            </div>
             ${u.via ? `<div class="usedin-via">+ ${escapeHtml(u.via)}</div>` : ''}
           </span>
           <span class="arrow-right">▸</span>
