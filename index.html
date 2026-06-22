@@ -6,27 +6,6 @@
 <title>원랜디 도감</title>
 <meta name="theme-color" content="#1b2a3a">
 <meta name="description" content="원피스 랜덤 디펜스 조합 도감 - 캐릭터 검색 및 조합 역추적">
-
-<!-- PWA: manifest -->
-<link rel="manifest" href="./manifest.json">
-
-<!-- PWA: icons -->
-<link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16.png">
-<link rel="shortcut icon" href="./favicon.ico">
-<link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png">
-<link rel="apple-touch-icon" sizes="152x152" href="./icons/icon-152.png">
-<link rel="apple-touch-icon" sizes="192x192" href="./icons/icon-192.png">
-
-<!-- PWA: iOS standalone support -->
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="원랜디 도감">
-
-<!-- PWA: Android / general -->
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="application-name" content="원랜디 도감">
-
 <style>
   :root{
     --ink:#1b2a3a;
@@ -1054,14 +1033,6 @@ document.getElementById('dismissInstall').addEventListener('click', () => {
 renderGradeFilter();
 renderTagHints();
 runSearch();
-
-// --- PWA: 서비스워커 등록 ---
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./service-worker.js')
-      .catch((err) => console.error('Service worker 등록 실패:', err));
-  });
-}
 
 </script>
 </body>
