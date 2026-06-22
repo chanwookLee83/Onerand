@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wonrandy-dogam-v2';
+const CACHE_NAME = 'wonrandy-dogam-v3';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
