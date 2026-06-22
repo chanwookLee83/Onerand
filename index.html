@@ -453,8 +453,10 @@
   .mini-chip{
     display:flex;
     align-items:center;
+    gap:5px;
     background:rgba(255,255,255,0.5);
     border:1px solid var(--rope);
+    border-left:3px solid var(--gold);
     border-radius:8px;
     padding:6px 12px;
     font-size:12.5px;
@@ -463,9 +465,49 @@
     transition:background .15s;
   }
   .mini-chip:active{ background:rgba(255,255,255,0.8); }
-  .mini-chip.no-link{ cursor:default; }
+  .mini-chip.no-link{ cursor:default; border-left-color:var(--rope); }
   .plus-sep{ color:var(--text-dim); font-size:13px; font-weight:700; }
   .none-text{ font-size:12.5px; color:var(--text-dim); font-style:italic; }
+
+  .mini-grade-tag{
+    font-size:8.5px;
+    font-weight:700;
+    padding:2px 6px;
+    border-radius:5px;
+    letter-spacing:0.2px;
+    white-space:nowrap;
+    flex:none;
+    background:var(--sea);
+    color:var(--gold-bright);
+  }
+  /* 등급별 재료 칩 좌측 보더 + 배지 색상 (카드 색상 체계와 동일) */
+  .mini-chip.grade-anhun{ border-left-color:#8a99a3; }
+  .mini-chip.grade-teukbyul{ border-left-color:#d98c2e; }
+  .mini-chip.grade-huhn{ border-left-color:#6fa46b; }
+  .mini-chip.grade-huigwi{ border-left-color:#a652a3; }
+  .mini-chip.grade-rare{ border-left-color:#c0507a; }
+  .mini-chip.grade-change{ border-left-color:#0e9488; }
+  .mini-chip.grade-legend{ border-left-color:#e74c3c; }
+  .mini-chip.grade-hidden{ border-left-color:#2bb5b8; }
+  .mini-chip.grade-distortion{ border-left-color:#9b2fc9; }
+  .mini-chip.grade-limited{ border-left-color:#d6336c; }
+  .mini-chip.grade-transcend{ border-left-color:#4c4fd6; }
+  .mini-chip.grade-immortal{ border-left-color:#b8860b; }
+  .mini-chip.grade-eternal{ border-left-color:#0d9276; }
+
+  .mini-grade-tag.grade-anhun{ background:#3f4d56; color:#dde4e8; }
+  .mini-grade-tag.grade-teukbyul{ background:#7a4a14; color:#ffd9a0; }
+  .mini-grade-tag.grade-huhn{ background:#3a5a38; color:#d6f0d2; }
+  .mini-grade-tag.grade-huigwi{ background:#5e1f5c; color:#f0c4ee; }
+  .mini-grade-tag.grade-rare{ background:#6e2c45; color:#f5cbdb; }
+  .mini-grade-tag.grade-change{ background:#0b6b62; color:#d2fff5; }
+  .mini-grade-tag.grade-legend{ background:#7a1f15; color:#ffcfc7; }
+  .mini-grade-tag.grade-hidden{ background:#114e4f; color:#aef0ee; }
+  .mini-grade-tag.grade-distortion{ background:linear-gradient(135deg,#6b21a8,#c026a3); color:#fbe8ff; }
+  .mini-grade-tag.grade-limited{ background:linear-gradient(135deg,#a3174f,#e8487a); color:#ffe4ee; }
+  .mini-grade-tag.grade-transcend{ background:linear-gradient(135deg,#2e2f8c,#6366f1); color:#e8e9ff; }
+  .mini-grade-tag.grade-immortal{ background:linear-gradient(135deg,#8a5a00,#d4a017); color:#fff6dd; }
+  .mini-grade-tag.grade-eternal{ background:linear-gradient(135deg,#04604a,#10b981,#d4a017); color:#eafff6; }
 
   .submat-row{ display:flex; gap:6px; flex-wrap:wrap; }
   .sub-chip{
@@ -892,9 +934,12 @@ function openModal(id) {
   } else {
     const chips = c.materials.map((matName) => {
       const matId = nameToId[matName];
-      const cls = matId ? 'mini-chip' : 'mini-chip no-link';
+      const matChar = matId ? byId[matId] : null;
+      const gCls = matChar ? gradeClass(matChar.grade) : '';
+      const cls = matId ? `mini-chip ${gCls}` : 'mini-chip no-link';
       const attr = matId ? `data-id="${matId}"` : '';
-      return `<span class="${cls}" ${attr}>${escapeHtml(matName)}</span>`;
+      const badge = matChar ? `<span class="mini-grade-tag ${gCls}">${escapeHtml(matChar.grade)}</span>` : '';
+      return `<span class="${cls}" ${attr}>${badge}${escapeHtml(matName)}</span>`;
     });
     recipeRow.innerHTML = chips.join('<span class="plus-sep">+</span>');
     recipeRow.querySelectorAll('.mini-chip[data-id]').forEach(el => {
