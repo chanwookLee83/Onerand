@@ -2014,9 +2014,16 @@ document.getElementById('editImageReset').addEventListener('click', () => {
 
 // --- 검색 입력 바인딩 ---
 let searchDebounce;
-document.getElementById('searchInput').addEventListener('input', () => {
+const searchInputEl = document.getElementById('searchInput');
+searchInputEl.addEventListener('input', () => {
   clearTimeout(searchDebounce);
   searchDebounce = setTimeout(runSearch, 80);
+});
+
+// 검색창을 다시 탭하면 기존 검색어가 전체 선택되어, 그대로 타이핑하면 바로 덮어써진다.
+// (검색 결과는 그대로 유지된 채 새 검색어만 빠르게 다시 입력할 수 있게)
+searchInputEl.addEventListener('focus', () => {
+  searchInputEl.select();
 });
 
 // --- PWA 설치 유도 토스트 ---
