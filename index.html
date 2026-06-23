@@ -280,6 +280,18 @@
     margin-bottom:6px;
   }
 
+  .card-thumb{
+    width:34px; height:34px;
+    border-radius:8px;
+    flex:none;
+    background:var(--sea);
+    background-size:cover;
+    background-position:center;
+    border:1px solid rgba(138,106,60,0.3);
+    display:flex; align-items:center; justify-content:center;
+    font-size:14px;
+  }
+
   .grade-tag{
     background:var(--sea);
     color:var(--gold-bright);
@@ -375,12 +387,31 @@
     width:48px; height:48px;
     border-radius:50%;
     background:radial-gradient(circle at 35% 30%, var(--gold-bright), var(--rust) 80%);
+    background-size:cover;
+    background-position:center;
     border:2px solid var(--parchment-dark);
     flex:none;
     display:flex; align-items:center; justify-content:center;
     font-size:22px;
     box-shadow:0 3px 8px rgba(0,0,0,0.3);
+    padding:0;
+    cursor:pointer;
+    color:inherit;
+    font-family:inherit;
   }
+  .modal-emblem.has-image{ font-size:0; }
+
+  .edit-image-box{
+    display:none;
+    flex-direction:column;
+    gap:8px;
+    margin:0 18px 10px;
+    padding:10px;
+    border:1px dashed var(--rope);
+    border-radius:10px;
+    background:rgba(255,255,255,0.35);
+  }
+  .edit-image-box.open{ display:flex; }
 
   .modal-title-area{ flex:1; min-width:0; padding-top:2px; }
   .modal-name-row{
@@ -1071,7 +1102,7 @@
   <div class="modal-sheet" id="modalSheet">
     <div class="modal-handle"></div>
     <div class="modal-header">
-      <div class="modal-emblem">☠️</div>
+      <button class="modal-emblem" id="modalEmblem" title="이미지 URL 추가/수정">☠️</button>
       <div class="modal-title-area">
         <div class="modal-name-row">
           <div class="modal-name" id="modalName"></div>
@@ -1087,6 +1118,16 @@
         <div class="modal-level" id="modalLevel"></div>
       </div>
       <button class="close-btn" id="closeBtn">✕</button>
+    </div>
+
+    <div class="edit-image-box" id="editImageBox">
+      <label class="edit-field-label">이미지 URL</label>
+      <input type="text" id="editImageInput" class="edit-name-input" placeholder="https://...">
+      <div class="edit-recipe-buttons">
+        <button class="edit-name-save" id="editImageSave">저장</button>
+        <button class="edit-name-cancel" id="editImageCancel">취소</button>
+        <button class="edit-name-reset" id="editImageReset">제거</button>
+      </div>
     </div>
 
     <div class="modal-section">
@@ -1367,6 +1408,7 @@ function applyAllOverrides(data, allOverrides) {
       if (o.grade) c.grade = o.grade;
       if (o.materials) c.materials = o.materials.slice();
       if (o.skill !== undefined) c.skill = o.skill;
+      if (o.image !== undefined) c.image = o.image;
     }
     if (Object.keys(renameMap).length && c.materials) {
       c.materials = c.materials.map(m => renameMap[m] || m);
@@ -1526,11 +1568,22 @@ function levelText(level) {
   return `Lv. ${level[0]}-${level[1]}`;
 }
 
+// 이미지로 쓸 URL이 안전한지 확인 (http/https/data 만 허용, javascript: 등은 차단)
+function isSafeImageUrl(url) {
+  if (!url) return false;
+  const trimmed = url.trim();
+  return /^(https?:|data:image\/)/i.test(trimmed);
+}
+
 function cardTemplate(c) {
   const matText = (c.materials && c.materials.length) ? c.materials.join(' + ') : '단독 획득';
+  const hasImg = isSafeImageUrl(c.image);
+  const thumbStyle = hasImg ? ` style="background-image:url('${escapeHtml(c.image)}')"` : '';
+  const thumbContent = hasImg ? '' : '🏴‍☠️';
   return `
     <div class="card ${gradeClass(c.grade)}" data-id="${c.id}">
       <div class="card-top">
+        <div class="card-thumb"${thumbStyle}>${thumbContent}</div>
         <div class="card-name">${escapeHtml(c.name)}</div>
         <span class="grade-tag">${escapeHtml(c.grade)}</span>
       </div>
@@ -1561,6 +1614,19 @@ function openModal(id) {
   document.getElementById('modalGrade').className = 'modal-grade ' + gradeClass(c.grade);
   document.getElementById('modalLevel').textContent = levelText(c.level);
   document.getElementById('updateNote').textContent = `수정일 ${c.updated}`;
+
+  // 캐릭터 이미지 (URL이 등록되어 있으면 사진, 없으면 기본 해골 이모지)
+  const emblem = document.getElementById('modalEmblem');
+  document.getElementById('editImageBox').classList.remove('open');
+  if (isSafeImageUrl(c.image)) {
+    emblem.style.backgroundImage = `url('${c.image.replace(/'/g, "%27")}')`;
+    emblem.textContent = '';
+    emblem.classList.add('has-image');
+  } else {
+    emblem.style.backgroundImage = '';
+    emblem.textContent = '☠️';
+    emblem.classList.remove('has-image');
+  }
 
   // 조합 재료
   const recipeRow = document.getElementById('recipeRow');
@@ -1900,6 +1966,50 @@ document.getElementById('editSkillReset').addEventListener('click', () => {
 
   document.getElementById('editSkillBox').classList.remove('open');
   openModal(currentModalId);
+});
+
+// --- 이미지 URL 수정 ---
+document.getElementById('modalEmblem').addEventListener('click', () => {
+  if (!currentModalId) return;
+  const c = byId[currentModalId];
+  const box = document.getElementById('editImageBox');
+  const input = document.getElementById('editImageInput');
+  input.value = c.image || '';
+  box.classList.add('open');
+  input.focus();
+});
+
+document.getElementById('editImageCancel').addEventListener('click', () => {
+  document.getElementById('editImageBox').classList.remove('open');
+});
+
+document.getElementById('editImageSave').addEventListener('click', () => {
+  if (!currentModalId) return;
+  const url = document.getElementById('editImageInput').value.trim();
+  if (url && !isSafeImageUrl(url)) {
+    alert('http(s):// 로 시작하는 이미지 URL을 입력해주세요.');
+    return;
+  }
+  const charName = byId[currentModalId].name;
+
+  lastSavedByMe = { id: currentModalId, at: Date.now() };
+  pushOverride(currentModalId, { image: url });
+  applyAllOverrides(CHARACTER_DATA, sharedOverrides);
+
+  document.getElementById('editImageBox').classList.remove('open');
+  openModal(currentModalId);
+  runSearch();
+  showSyncToast(`"${charName}" 이미지가 저장됐어요`, 'mine');
+});
+
+document.getElementById('editImageReset').addEventListener('click', () => {
+  if (!currentModalId) return;
+  removeOverrideField(currentModalId, 'image');
+  byId[currentModalId].image = '';
+
+  document.getElementById('editImageBox').classList.remove('open');
+  openModal(currentModalId);
+  runSearch();
 });
 
 // --- 검색 입력 바인딩 ---
