@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wonrandy-dogam-v9';
+const CACHE_NAME = 'wonrandy-dogam-v14';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -39,8 +39,10 @@ self.addEventListener('activate', (event) => {
 });
 
 // 요청 처리: 캐시 우선, 실패 시 네트워크, 네트워크 응답은 캐시에 갱신
+// 단, Firebase/외부 도메인 요청(WebSocket, API 등)은 서비스워커가 손대지 않고 그대로 흘려보낸다.
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  if (new URL(event.request.url).origin !== self.location.origin) return;
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
