@@ -740,6 +740,18 @@
     resize:vertical;
   }
 
+  .edit-command-box{
+    display:none;
+    flex-direction:column;
+    gap:8px;
+    margin-top:10px;
+    padding:10px;
+    border:1px dashed var(--rope);
+    border-radius:10px;
+    background:rgba(255,255,255,0.35);
+  }
+  .edit-command-box.open{ display:flex; }
+
   .recipe-row{
     display:flex;
     align-items:center;
@@ -1156,8 +1168,20 @@
     </div>
 
     <div class="modal-section" id="commandSection">
-      <div class="section-label">⌨️ 조합 명령어 (입력 필요)</div>
+      <div class="section-label-row">
+        <div class="section-label">⌨️ 조합 명령어 (입력 필요)</div>
+        <button class="edit-recipe-btn" id="editCommandBtn" title="조합 명령어 작성/수정">✏️ 작성</button>
+      </div>
       <div class="command-row" id="commandRow"></div>
+
+      <div class="edit-command-box" id="editCommandBox">
+        <input type="text" id="editCommandInput" class="edit-name-input" maxlength="60" placeholder="예: 태양의신">
+        <div class="edit-recipe-buttons">
+          <button class="edit-name-save" id="editCommandSave">저장</button>
+          <button class="edit-name-cancel" id="editCommandCancel">취소</button>
+          <button class="edit-name-reset" id="editCommandReset">지우기</button>
+        </div>
+      </div>
     </div>
 
     <div class="modal-section" id="subMatSection">
@@ -1409,6 +1433,7 @@ function applyAllOverrides(data, allOverrides) {
       if (o.materials) c.materials = o.materials.slice();
       if (o.skill !== undefined) c.skill = o.skill;
       if (o.image !== undefined) c.image = o.image;
+      if (o.command !== undefined) c.command = o.command;
     }
     if (Object.keys(renameMap).length && c.materials) {
       c.materials = c.materials.map(m => renameMap[m] || m);
@@ -1672,14 +1697,15 @@ function openModal(id) {
     skillTextEl.classList.add('empty');
   }
 
-  // 조합 명령어 (재료를 다 모은 뒤 타이핑해야 하는 키워드, 히든조합 전용)
+  // 조합 명령어 (재료를 다 모은 뒤 타이핑해야 하는 키워드)
   const cmdSection = document.getElementById('commandSection');
   const cmdRow = document.getElementById('commandRow');
+  document.getElementById('editCommandBox').classList.remove('open');
+  cmdSection.style.display = '';
   if (c.command && c.command.name) {
-    cmdSection.style.display = '';
     cmdRow.innerHTML = `<span class="command-chip">${escapeHtml(c.command.name)}</span>`;
   } else {
-    cmdSection.style.display = 'none';
+    cmdRow.innerHTML = `<span class="none-text">아직 등록된 조합 명령어가 없습니다. ✏️ 작성 버튼을 눌러 적어보세요.</span>`;
   }
 
   // 태그
@@ -2010,6 +2036,45 @@ document.getElementById('editImageReset').addEventListener('click', () => {
   document.getElementById('editImageBox').classList.remove('open');
   openModal(currentModalId);
   runSearch();
+});
+
+// --- 조합 명령어 수정 ---
+document.getElementById('editCommandBtn').addEventListener('click', () => {
+  if (!currentModalId) return;
+  const c = byId[currentModalId];
+  const box = document.getElementById('editCommandBox');
+  const input = document.getElementById('editCommandInput');
+  input.value = (c.command && c.command.name) || '';
+  box.classList.add('open');
+  input.focus();
+});
+
+document.getElementById('editCommandCancel').addEventListener('click', () => {
+  document.getElementById('editCommandBox').classList.remove('open');
+});
+
+document.getElementById('editCommandSave').addEventListener('click', () => {
+  if (!currentModalId) return;
+  const newCommand = document.getElementById('editCommandInput').value.trim();
+  if (!newCommand) return;
+  const charName = byId[currentModalId].name;
+
+  lastSavedByMe = { id: currentModalId, at: Date.now() };
+  pushOverride(currentModalId, { command: { name: newCommand } });
+  applyAllOverrides(CHARACTER_DATA, sharedOverrides);
+
+  document.getElementById('editCommandBox').classList.remove('open');
+  openModal(currentModalId);
+  showSyncToast(`"${charName}" 조합 명령어가 저장됐어요`, 'mine');
+});
+
+document.getElementById('editCommandReset').addEventListener('click', () => {
+  if (!currentModalId) return;
+  removeOverrideField(currentModalId, 'command');
+  byId[currentModalId].command = null;
+
+  document.getElementById('editCommandBox').classList.remove('open');
+  openModal(currentModalId);
 });
 
 // --- 검색 입력 바인딩 ---
