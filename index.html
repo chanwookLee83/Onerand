@@ -938,6 +938,125 @@
     transition:transform .3s;
   }
   .install-toast.show{ transform:translateY(0); }
+
+  .fab-add{
+    position:fixed;
+    right:18px;
+    bottom:max(18px, env(safe-area-inset-bottom));
+    width:52px; height:52px;
+    border-radius:50%;
+    background:var(--gold);
+    color:var(--ink);
+    font-size:26px;
+    font-weight:700;
+    border:2px solid var(--gold-bright);
+    box-shadow:0 4px 14px rgba(0,0,0,0.45);
+    z-index:55;
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    line-height:1;
+  }
+  .fab-add:active{ transform:scale(0.94); }
+
+  .addchar-overlay{
+    position:fixed; inset:0;
+    background:rgba(10,18,24,0.7);
+    z-index:95;
+    display:none;
+    align-items:flex-end;
+    justify-content:center;
+  }
+  .addchar-overlay.open{ display:flex; }
+  .addchar-sheet{
+    width:100%;
+    max-width:520px;
+    max-height:88vh;
+    background:var(--parchment);
+    border-radius:18px 18px 0 0;
+    padding:16px 18px 20px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    overflow-y:auto;
+    box-shadow:0 -8px 24px rgba(0,0,0,0.45);
+  }
+  .addchar-title{
+    font-family:var(--font-display);
+    font-size:18px;
+    color:var(--ink);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .addchar-field{
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+  }
+  .addchar-field label{
+    font-size:11px;
+    font-weight:700;
+    color:var(--text-dim);
+  }
+  .addchar-field input, .addchar-field select, .addchar-field textarea{
+    font-size:13.5px;
+    padding:8px 10px;
+    border:1px solid var(--rope);
+    border-radius:8px;
+    background:rgba(255,255,255,0.7);
+    color:var(--ink);
+    font-family:inherit;
+  }
+  .addchar-field textarea{ min-height:70px; resize:vertical; }
+  .addchar-row2{ display:flex; gap:8px; }
+  .addchar-row2 .addchar-field{ flex:1; }
+  .addchar-mat-list{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .addchar-buttons{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    margin-top:6px;
+  }
+  .addchar-submit{
+    width:100%;
+    font-size:14px;
+    font-weight:700;
+    padding:12px;
+    border-radius:10px;
+    border:none;
+    background:var(--gold);
+    color:var(--ink);
+    cursor:pointer;
+  }
+  .addchar-cancel{
+    width:100%;
+    font-size:12.5px;
+    padding:9px;
+    border-radius:10px;
+    border:1px solid var(--rope);
+    background:none;
+    color:var(--text-dim);
+    cursor:pointer;
+  }
+
+  /* 모달 삭제 버튼 */
+  .delete-char-btn{
+    margin:6px 18px 0;
+    font-size:12px;
+    font-weight:700;
+    padding:10px;
+    border-radius:10px;
+    border:1px solid #b13b3b;
+    background:rgba(177,59,59,0.08);
+    color:#c0463f;
+    cursor:pointer;
+  }
+  .delete-char-btn:active{ background:rgba(177,59,59,0.2); }
+
   .install-toast span{ color:var(--parchment); font-size:12.5px; flex:1; }
   .install-toast button{
     background:var(--gold);
@@ -1110,6 +1229,8 @@
   </div>
 </main>
 
+<button class="fab-add" id="fabAddChar" title="새 캐릭터 추가">+</button>
+
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal-sheet" id="modalSheet">
     <div class="modal-handle"></div>
@@ -1216,6 +1337,8 @@
       <div class="usedin-list" id="usedinList"></div>
     </div>
 
+    <button class="delete-char-btn" id="deleteCharBtn">🗑 이 캐릭터 삭제</button>
+
     <div class="update-note" id="updateNote"></div>
   </div>
 </div>
@@ -1226,6 +1349,73 @@
     <input type="text" id="pickerSearch" class="picker-search" placeholder="이름으로 검색...">
     <div class="picker-list" id="pickerList"></div>
     <button class="picker-close" id="pickerClose">닫기</button>
+  </div>
+</div>
+
+<div class="addchar-overlay" id="addCharOverlay">
+  <div class="addchar-sheet">
+    <div class="addchar-title">
+      <span>🆕 새 캐릭터 추가</span>
+      <button class="picker-close" id="addCharClose">✕</button>
+    </div>
+
+    <div class="addchar-field">
+      <label>캐릭터 이름 *</label>
+      <input type="text" id="newCharName" maxlength="80" placeholder="예: 루피 - 기어식스">
+    </div>
+
+    <div class="addchar-row2">
+      <div class="addchar-field">
+        <label>등급 *</label>
+        <select id="newCharGrade"></select>
+      </div>
+      <div class="addchar-field">
+        <label>최종수정일</label>
+        <input type="text" id="newCharUpdated" placeholder="2026.06.24">
+      </div>
+    </div>
+
+    <div class="addchar-row2">
+      <div class="addchar-field">
+        <label>레벨 최소</label>
+        <input type="text" id="newCharLevelMin" placeholder="예: 10001">
+      </div>
+      <div class="addchar-field">
+        <label>레벨 최대</label>
+        <input type="text" id="newCharLevelMax" placeholder="예: 10003">
+      </div>
+    </div>
+
+    <div class="addchar-field">
+      <label>재료 (탭해서 검색 후 선택, 비어두면 단독 획득)</label>
+      <div class="addchar-mat-list" id="newCharMatList"></div>
+      <button class="edit-mat-add" id="newCharMatAdd">+ 재료 추가</button>
+    </div>
+
+    <div class="addchar-field">
+      <label>태그 (쉼표로 구분)</label>
+      <input type="text" id="newCharTags" placeholder="예: 밀짚모자해적단, 해적">
+    </div>
+
+    <div class="addchar-field">
+      <label>조합 명령어 (선택)</label>
+      <input type="text" id="newCharCommand" placeholder="예: 태양의신">
+    </div>
+
+    <div class="addchar-field">
+      <label>스킬 (선택)</label>
+      <textarea id="newCharSkill" placeholder="스킬 이름과 효과를 자유롭게 적어주세요"></textarea>
+    </div>
+
+    <div class="addchar-field">
+      <label>이미지 URL (선택)</label>
+      <input type="text" id="newCharImage" placeholder="https://...">
+    </div>
+
+    <div class="addchar-buttons">
+      <button class="addchar-submit" id="newCharSubmit">추가하기</button>
+      <button class="addchar-cancel" id="newCharCancel">취소</button>
+    </div>
   </div>
 </div>
 
@@ -1443,12 +1633,95 @@ function applyAllOverrides(data, allOverrides) {
   return data;
 }
 
+// =====================================================================
+// 캐릭터 추가 / 삭제
+// 원본 게임 데이터(CHARACTER_DATA)는 건드리지 않고, 새로 추가한 캐릭터는
+// Firebase의 /customChars/{id}에, 삭제 표시는 /deletedChars/{id}=true 에 저장한다.
+// 둘 다 로컬 캐시를 두어 오프라인에서도 마지막 상태가 바로 보이게 한다.
+// =====================================================================
+const CUSTOM_CHARS_LOCAL_KEY = 'wonrandy_custom_chars_cache';
+const DELETED_CHARS_LOCAL_KEY = 'wonrandy_deleted_chars_cache';
+
+function loadLocalCustomChars() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_CHARS_LOCAL_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) { return {}; }
+}
+function saveLocalCustomChars(obj) {
+  try { localStorage.setItem(CUSTOM_CHARS_LOCAL_KEY, JSON.stringify(obj)); } catch (e) {}
+}
+function loadLocalDeletedChars() {
+  try {
+    const raw = localStorage.getItem(DELETED_CHARS_LOCAL_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) { return {}; }
+}
+function saveLocalDeletedChars(obj) {
+  try { localStorage.setItem(DELETED_CHARS_LOCAL_KEY, JSON.stringify(obj)); } catch (e) {}
+}
+
+let customChars = loadLocalCustomChars();   // { id: 캐릭터객체 }
+let deletedChars = loadLocalDeletedChars(); // { id: true }
+
+// CHARACTER_DATA(원본) + customChars(추가분) - deletedChars(삭제표시) 를 합쳐서
+// 화면에서 실제로 쓰는 배열을 만든다. 원본 배열 자체는 건드리지 않는다.
+function buildDisplayData() {
+  const base = CHARACTER_DATA.filter(c => !deletedChars[c.id]);
+  const customList = Object.keys(customChars)
+    .filter(id => !deletedChars[id])
+    .map(id => customChars[id]);
+  return base.concat(customList);
+}
+
+function addCustomChar(charObj) {
+  customChars[charObj.id] = charObj;
+  saveLocalCustomChars(customChars);
+
+  if (fbReady) {
+    fbDb.ref('customChars/' + charObj.id).set(charObj).catch(err => {
+      console.error('Firebase 캐릭터 추가 실패 (로컬에는 저장됨):', err);
+    });
+  }
+}
+
+function deleteChar(id) {
+  deletedChars[id] = true;
+  saveLocalDeletedChars(deletedChars);
+
+  if (fbReady) {
+    fbDb.ref('deletedChars/' + id).set(true).catch(err => {
+      console.error('Firebase 삭제 표시 실패 (로컬에는 적용됨):', err);
+    });
+  }
+}
+
+function restoreDeletedChar(id) {
+  delete deletedChars[id];
+  saveLocalDeletedChars(deletedChars);
+
+  if (fbReady) {
+    fbDb.ref('deletedChars/' + id).remove().catch(err => {
+      console.error('Firebase 삭제 취소 실패 (로컬에는 적용됨):', err);
+    });
+  }
+}
+
 // 1) 우선 로컬 캐시로 즉시 반영 (오프라인이어도 마지막 상태가 바로 보이게)
 let sharedOverrides = loadLocalOverridesCache();
-applyAllOverrides(CHARACTER_DATA, sharedOverrides);
+let DISPLAY_DATA = buildDisplayData();
+applyAllOverrides(DISPLAY_DATA, sharedOverrides);
 
 const byId = {};
-CHARACTER_DATA.forEach(c => { byId[c.id] = c; });
+DISPLAY_DATA.forEach(c => { byId[c.id] = c; });
+
+// 캐릭터를 추가/삭제한 뒤에는 DISPLAY_DATA 배열 자체를 다시 만들고 byId도 같이 갱신해야 한다.
+function rebuildDisplayData() {
+  DISPLAY_DATA = buildDisplayData();
+  applyAllOverrides(DISPLAY_DATA, sharedOverrides);
+  Object.keys(byId).forEach(k => delete byId[k]);
+  DISPLAY_DATA.forEach(c => { byId[c.id] = c; });
+}
 
 // 이름 -> id, "어디에 쓰이는지" 역인덱스. 이름 수정 후에는 rebuildIndexes()로 다시 만든다.
 const nameToId = {};
@@ -1458,9 +1731,9 @@ function rebuildIndexes() {
   Object.keys(nameToId).forEach(k => delete nameToId[k]);
   Object.keys(usedInIndex).forEach(k => delete usedInIndex[k]);
 
-  CHARACTER_DATA.forEach(c => { nameToId[c.name] = c.id; });
+  DISPLAY_DATA.forEach(c => { nameToId[c.name] = c.id; });
 
-  CHARACTER_DATA.forEach(c => {
+  DISPLAY_DATA.forEach(c => {
     (c.materials || []).forEach(matName => {
       if (!usedInIndex[matName]) usedInIndex[matName] = [];
       const others = (c.materials || []).filter(m => m !== matName);
@@ -1480,7 +1753,7 @@ rebuildIndexes();
 let activeGrade = null; // null = 전체
 
 function renderGradeFilter() {
-  const grades = [...new Set(CHARACTER_DATA.map(c => c.grade))]
+  const grades = [...new Set(DISPLAY_DATA.map(c => c.grade))]
     .sort((a, b) => ((GRADE_STYLE[a]?.order)||99) - ((GRADE_STYLE[b]?.order)||99));
   const wrap = document.getElementById('gradeFilter');
   wrap.innerHTML = `<span class="grade-chip ${activeGrade===null?'active':''}" data-grade="">전체</span>` +
@@ -1497,7 +1770,7 @@ function renderGradeFilter() {
 // --- 태그 전체 수집 (힌트칩용, 상위 6개) ---
 function renderTagHints() {
   const tagCount = {};
-  CHARACTER_DATA.forEach(c => (c.tags||[]).forEach(t => { tagCount[t] = (tagCount[t]||0)+1; }));
+  DISPLAY_DATA.forEach(c => (c.tags||[]).forEach(t => { tagCount[t] = (tagCount[t]||0)+1; }));
   const sorted = Object.entries(tagCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
   const wrap = document.getElementById('tagHints');
   wrap.innerHTML = sorted.map(([tag]) => `<span class="hint-chip" data-tag="${escapeHtml(tag)}">#${escapeHtml(tag)}</span>`).join('');
@@ -1566,7 +1839,7 @@ function runSearch() {
   const grid = document.getElementById('grid');
   const empty = document.getElementById('emptyState');
 
-  let filtered = CHARACTER_DATA.filter(c => matchCharacter(c, query));
+  let filtered = DISPLAY_DATA.filter(c => matchCharacter(c, query));
   if (activeGrade) {
     filtered = filtered.filter(c => c.grade === activeGrade);
   }
@@ -1825,7 +2098,6 @@ document.getElementById('editNameReset').addEventListener('click', () => {
 
 // --- 재료/등급 수정 ---
 let editingMaterials = []; // 편집 중인 재료 배열 (저장 전까지 임시 보관)
-let pickerTargetIndex = null; // 어느 재료 슬롯을 교체하는 중인지
 
 function renderGradeOptions(selectedGrade) {
   const select = document.getElementById('editGradeSelect');
@@ -1902,26 +2174,36 @@ document.getElementById('editRecipeReset').addEventListener('click', () => {
   location.reload();
 });
 
-// --- 재료 검색 피커 ---
-function openPicker(idx) {
-  pickerTargetIndex = idx;
+// --- 재료 검색 피커 (콜백 방식: 기존 캐릭터 재료수정 / 새 캐릭터 추가 양쪽에서 재사용) ---
+let pickerOnSelect = null; // (선택된 캐릭터 이름) => void
+
+function openPickerWithCallback(onSelect) {
+  pickerOnSelect = onSelect;
   document.getElementById('pickerSearch').value = '';
   renderPickerList('');
   document.getElementById('pickerOverlay').classList.add('open');
   setTimeout(() => document.getElementById('pickerSearch').focus(), 50);
 }
 
+// 기존 "재료 슬롯 교체" 용도 (editingMaterials 배열의 idx번째를 바꿔치기)
+function openPicker(idx) {
+  openPickerWithCallback((name) => {
+    editingMaterials[idx] = name;
+    renderEditMatList();
+  });
+}
+
 function closePicker() {
   document.getElementById('pickerOverlay').classList.remove('open');
-  pickerTargetIndex = null;
+  pickerOnSelect = null;
 }
 
 function renderPickerList(query) {
   const list = document.getElementById('pickerList');
   const q = normalize(query);
-  let results = CHARACTER_DATA;
+  let results = DISPLAY_DATA;
   if (q) {
-    results = CHARACTER_DATA.filter(c => normalize(c.name).includes(q));
+    results = DISPLAY_DATA.filter(c => normalize(c.name).includes(q));
   }
   results = results.slice(0, 60); // 너무 길어지지 않게 상위 60개만
 
@@ -1939,10 +2221,7 @@ function renderPickerList(query) {
 
   list.querySelectorAll('.picker-item').forEach(el => {
     el.addEventListener('click', () => {
-      if (pickerTargetIndex !== null) {
-        editingMaterials[pickerTargetIndex] = el.dataset.name;
-        renderEditMatList();
-      }
+      if (pickerOnSelect) pickerOnSelect(el.dataset.name);
       closePicker();
     });
   });
@@ -1954,6 +2233,129 @@ document.getElementById('pickerSearch').addEventListener('input', (e) => {
 document.getElementById('pickerClose').addEventListener('click', closePicker);
 document.getElementById('pickerOverlay').addEventListener('click', (e) => {
   if (e.target.id === 'pickerOverlay') closePicker();
+});
+
+// --- 새 캐릭터 추가 ---
+let newCharMaterials = [];
+
+function renderNewCharGradeOptions() {
+  const select = document.getElementById('newCharGrade');
+  const grades = Object.keys(GRADE_STYLE).sort((a, b) => GRADE_STYLE[a].order - GRADE_STYLE[b].order);
+  select.innerHTML = grades.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
+}
+
+function renderNewCharMatList() {
+  const list = document.getElementById('newCharMatList');
+  list.innerHTML = newCharMaterials.map((mat, idx) => `
+    <div class="edit-mat-item">
+      <span class="edit-mat-item-text" data-idx="${idx}">${escapeHtml(mat)}</span>
+      <button class="edit-mat-item-remove" data-idx="${idx}">✕</button>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('.edit-mat-item-text').forEach(el => {
+    const idx = parseInt(el.dataset.idx, 10);
+    el.addEventListener('click', () => {
+      openPickerWithCallback((name) => {
+        newCharMaterials[idx] = name;
+        renderNewCharMatList();
+      });
+    });
+  });
+  list.querySelectorAll('.edit-mat-item-remove').forEach(el => {
+    el.addEventListener('click', () => {
+      const idx = parseInt(el.dataset.idx, 10);
+      newCharMaterials.splice(idx, 1);
+      renderNewCharMatList();
+    });
+  });
+}
+
+function resetNewCharForm() {
+  document.getElementById('newCharName').value = '';
+  document.getElementById('newCharUpdated').value = '';
+  document.getElementById('newCharLevelMin').value = '';
+  document.getElementById('newCharLevelMax').value = '';
+  document.getElementById('newCharTags').value = '';
+  document.getElementById('newCharCommand').value = '';
+  document.getElementById('newCharSkill').value = '';
+  document.getElementById('newCharImage').value = '';
+  newCharMaterials = [];
+  renderNewCharMatList();
+  renderNewCharGradeOptions();
+}
+
+function openAddCharForm() {
+  resetNewCharForm();
+  document.getElementById('addCharOverlay').classList.add('open');
+}
+function closeAddCharForm() {
+  document.getElementById('addCharOverlay').classList.remove('open');
+}
+
+document.getElementById('fabAddChar').addEventListener('click', openAddCharForm);
+document.getElementById('addCharClose').addEventListener('click', closeAddCharForm);
+document.getElementById('newCharCancel').addEventListener('click', closeAddCharForm);
+document.getElementById('addCharOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'addCharOverlay') closeAddCharForm();
+});
+document.getElementById('newCharMatAdd').addEventListener('click', () => {
+  newCharMaterials.push('새 재료');
+  renderNewCharMatList();
+  openPickerWithCallback((name) => {
+    newCharMaterials[newCharMaterials.length - 1] = name;
+    renderNewCharMatList();
+  });
+});
+
+function slugify(text) {
+  // 한글 이름 그대로는 id로 쓰기 어색하니, custom_ 접두사 + 타임스탬프로 고유 id 생성
+  return 'custom_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+}
+
+document.getElementById('newCharSubmit').addEventListener('click', () => {
+  const name = document.getElementById('newCharName').value.trim();
+  if (!name) {
+    alert('캐릭터 이름을 입력해주세요.');
+    return;
+  }
+  const grade = document.getElementById('newCharGrade').value;
+  const updated = document.getElementById('newCharUpdated').value.trim() || new Date().toISOString().slice(0,10).replace(/-/g,'.');
+  const levelMinRaw = document.getElementById('newCharLevelMin').value.trim();
+  const levelMaxRaw = document.getElementById('newCharLevelMax').value.trim();
+  const level = [levelMinRaw || '?', levelMaxRaw || '?'];
+  const tags = document.getElementById('newCharTags').value.split(',').map(t => t.trim()).filter(Boolean);
+  const commandName = document.getElementById('newCharCommand').value.trim();
+  const skill = document.getElementById('newCharSkill').value;
+  const imageUrl = document.getElementById('newCharImage').value.trim();
+  if (imageUrl && !isSafeImageUrl(imageUrl)) {
+    alert('이미지는 http(s):// 로 시작하는 URL만 입력 가능합니다.');
+    return;
+  }
+
+  const id = slugify(name);
+  const newChar = {
+    id,
+    name,
+    grade,
+    materials: newCharMaterials.slice(),
+    subMaterials: [],
+    level,
+    tags,
+    updated,
+    command: commandName ? { name: commandName } : null,
+    skill: skill || '',
+    image: imageUrl || ''
+  };
+
+  addCustomChar(newChar);
+  rebuildDisplayData();
+  rebuildIndexes();
+  renderGradeFilter();
+  renderTagHints();
+  runSearch();
+  closeAddCharForm();
+  showSyncToast(`"${name}" 캐릭터가 추가됐어요`, 'mine');
 });
 
 // --- 스킬 작성 ---
@@ -2077,6 +2479,24 @@ document.getElementById('editCommandReset').addEventListener('click', () => {
   openModal(currentModalId);
 });
 
+// --- 캐릭터 삭제 ---
+document.getElementById('deleteCharBtn').addEventListener('click', () => {
+  if (!currentModalId) return;
+  const c = byId[currentModalId];
+  const confirmed = confirm(`"${c.name}"을 정말 삭제할까요?\n\n다른 조합의 재료로 쓰이고 있다면 그 조합 표시도 영향을 받을 수 있어요.\n(목록에서만 숨겨지며, 필요하면 나중에 복원할 수 있어요)`);
+  if (!confirmed) return;
+
+  const charName = c.name;
+  deleteChar(currentModalId);
+  rebuildDisplayData();
+  rebuildIndexes();
+  closeModal();
+  renderGradeFilter();
+  renderTagHints();
+  runSearch();
+  showSyncToast(`"${charName}" 캐릭터를 삭제했어요`, 'mine');
+});
+
 // --- 검색 입력 바인딩 ---
 let searchDebounce;
 const searchInputEl = document.getElementById('searchInput');
@@ -2143,30 +2563,55 @@ function findChangedCharIds(oldOverrides, newOverrides) {
   return changed;
 }
 
-let pendingRemoteOverrides = null; // 확인창에서 "지금 업데이트"를 누르면 적용할 최신 데이터
+let pendingRemoteOverrides = null;   // 확인창에서 "지금 업데이트"를 누르면 적용할 최신 오버라이드
+let pendingRemoteCustomChars = null; // 적용할 최신 추가 캐릭터 목록
+let pendingRemoteDeletedChars = null; // 적용할 최신 삭제 표시 목록
+let pendingNewCharNames = [];        // 안내문에 "새로 추가된 캐릭터"로 보여줄 이름들
 
 function applyPendingUpdate() {
-  if (!pendingRemoteOverrides) return;
-  sharedOverrides = pendingRemoteOverrides;
-  saveLocalOverridesCache(sharedOverrides);
-  applyAllOverrides(CHARACTER_DATA, sharedOverrides);
+  if (pendingRemoteOverrides) {
+    sharedOverrides = pendingRemoteOverrides;
+    saveLocalOverridesCache(sharedOverrides);
+  }
+  if (pendingRemoteCustomChars) {
+    customChars = pendingRemoteCustomChars;
+    saveLocalCustomChars(customChars);
+  }
+  if (pendingRemoteDeletedChars) {
+    deletedChars = pendingRemoteDeletedChars;
+    saveLocalDeletedChars(deletedChars);
+  }
+
+  rebuildDisplayData();
   rebuildIndexes();
 
   const overlay = document.getElementById('modalOverlay');
   if (overlay.classList.contains('open') && currentModalId) {
-    openModal(currentModalId);
+    if (byId[currentModalId]) {
+      openModal(currentModalId);
+    } else {
+      // 보고 있던 캐릭터가 다른 사람에 의해 삭제된 경우
+      closeModal();
+    }
   }
   renderGradeFilter();
+  renderTagHints();
   runSearch();
 
   pendingRemoteOverrides = null;
+  pendingRemoteCustomChars = null;
+  pendingRemoteDeletedChars = null;
+  pendingNewCharNames = [];
   closeUpdatePrompt();
 }
 
 function showUpdatePrompt(changedIds) {
   const names = changedIds.map(id => {
     const c = byId[id];
-    return c ? c.name : id;
+    if (c) return c.name;
+    const newC = pendingRemoteCustomChars && pendingRemoteCustomChars[id];
+    if (newC) return newC.name + ' (신규)';
+    return id;
   });
   const listEl = document.getElementById('updatePromptList');
   const MAX_SHOW = 8;
@@ -2185,13 +2630,26 @@ document.getElementById('updatePromptLater').addEventListener('click', closeUpda
 document.getElementById('updatePromptNow').addEventListener('click', applyPendingUpdate);
 
 onFirebaseReady(() => {
-  fbDb.ref('overrides').once('value').then((snapshot) => {
-    const remoteOverrides = snapshot.val() || {};
-    const changedIds = findChangedCharIds(sharedOverrides, remoteOverrides);
+  Promise.all([
+    fbDb.ref('overrides').once('value'),
+    fbDb.ref('customChars').once('value'),
+    fbDb.ref('deletedChars').once('value')
+  ]).then(([overridesSnap, customSnap, deletedSnap]) => {
+    const remoteOverrides = overridesSnap.val() || {};
+    const remoteCustomChars = customSnap.val() || {};
+    const remoteDeletedChars = deletedSnap.val() || {};
 
-    if (changedIds.length > 0) {
+    const changedOverrideIds = findChangedCharIds(sharedOverrides, remoteOverrides);
+    const changedCustomIds = findChangedCharIds(customChars, remoteCustomChars);
+    const changedDeletedIds = findChangedCharIds(deletedChars, remoteDeletedChars);
+
+    const allChangedIds = [...new Set([...changedOverrideIds, ...changedCustomIds, ...changedDeletedIds])];
+
+    if (allChangedIds.length > 0) {
       pendingRemoteOverrides = remoteOverrides;
-      showUpdatePrompt(changedIds);
+      pendingRemoteCustomChars = remoteCustomChars;
+      pendingRemoteDeletedChars = remoteDeletedChars;
+      showUpdatePrompt(allChangedIds);
     }
   }).catch((err) => {
     console.error('Firebase 동기화 확인 실패, 로컬 캐시로 계속 동작합니다:', err);
