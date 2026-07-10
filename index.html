@@ -9,21 +9,15 @@
 
 <!-- PWA: manifest -->
 <link rel="manifest" href="./manifest.json">
-
-<!-- PWA: icons -->
 <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16.png">
 <link rel="shortcut icon" href="./favicon.ico">
 <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png">
 <link rel="apple-touch-icon" sizes="152x152" href="./icons/icon-152.png">
 <link rel="apple-touch-icon" sizes="192x192" href="./icons/icon-192.png">
-
-<!-- PWA: iOS standalone support -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="원랜디 도감">
-
-<!-- PWA: Android / general -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="원랜디 도감">
 
@@ -171,6 +165,33 @@
     gap:6px;
     flex-wrap:wrap;
   }
+
+  .skilltype-filter-row{
+    max-width:720px;
+    margin:6px auto 2px;
+    display:flex;
+    gap:5px;
+    flex-wrap:wrap;
+  }
+  .skilltype-chip{
+    font-size:11px;
+    font-weight:700;
+    padding:4px 9px;
+    border-radius:999px;
+    border:1.5px solid rgba(243,233,210,0.2);
+    color:rgba(243,233,210,0.6);
+    background:rgba(255,255,255,0.04);
+    cursor:pointer;
+    transition:all .12s;
+    white-space:nowrap;
+  }
+  .skilltype-chip:active{ opacity:0.7; }
+  .skilltype-chip.active{
+    background:var(--rust);
+    color:#fff;
+    border-color:var(--rust);
+  }
+
   .grade-chip{
     font-size:12px;
     font-weight:700;
@@ -740,6 +761,67 @@
     resize:vertical;
   }
 
+  /* 스킬 타입 표시 (모달) */
+  .skilltype-display{
+    display:flex;
+    flex-wrap:wrap;
+    gap:5px;
+    min-height:22px;
+  }
+  .skilltype-badge{
+    font-size:10px;
+    font-weight:700;
+    padding:3px 8px;
+    border-radius:999px;
+    background:var(--rust);
+    color:#fff;
+    white-space:nowrap;
+  }
+  .skilltype-badge.empty{
+    color:var(--text-dim);
+    font-style:italic;
+    background:none;
+    font-size:12px;
+    font-weight:400;
+  }
+
+  /* 스킬 타입 편집박스 */
+  .edit-skilltype-box{
+    display:none;
+    flex-direction:column;
+    gap:10px;
+    margin-top:10px;
+    padding:10px;
+    border:1px dashed var(--rope);
+    border-radius:10px;
+    background:rgba(255,255,255,0.35);
+  }
+  .edit-skilltype-box.open{ display:flex; }
+  .skilltype-checkbox-grid{
+    display:flex;
+    flex-wrap:wrap;
+    gap:7px;
+  }
+  .skilltype-check-item{
+    display:flex;
+    align-items:center;
+    gap:4px;
+    font-size:12px;
+    color:var(--ink);
+    cursor:pointer;
+    padding:4px 9px;
+    border-radius:8px;
+    border:1.5px solid var(--rope);
+    background:rgba(255,255,255,0.4);
+    user-select:none;
+  }
+  .skilltype-check-item.checked{
+    background:var(--rust);
+    color:#fff;
+    border-color:var(--rust);
+  }
+  .skilltype-check-item input{ display:none; }
+
   .edit-command-box{
     display:none;
     flex-direction:column;
@@ -1218,6 +1300,7 @@
   </div>
   <div class="hint-row" id="tagHints"></div>
   <div class="grade-filter-row" id="gradeFilter"></div>
+  <div class="skilltype-filter-row" id="skilltypeFilter"></div>
 </header>
 
 <main>
@@ -1323,6 +1406,22 @@
           <button class="edit-name-save" id="editSkillSave">저장</button>
           <button class="edit-name-cancel" id="editSkillCancel">취소</button>
           <button class="edit-name-reset" id="editSkillReset">지우기</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <div class="section-label-row">
+        <div class="section-label">⚡ 스킬 타입</div>
+        <button class="edit-recipe-btn" id="editSkillTypeBtn" title="스킬 타입 선택">✏️ 선택</button>
+      </div>
+      <div class="skilltype-display" id="skilltypeDisplay"></div>
+      <div class="edit-skilltype-box" id="editSkillTypeBox">
+        <div class="skilltype-checkbox-grid" id="skilltypeCheckboxGrid"></div>
+        <div class="edit-recipe-buttons">
+          <button class="edit-name-save" id="editSkillTypeSave">저장</button>
+          <button class="edit-name-cancel" id="editSkillTypeCancel">취소</button>
+          <button class="edit-name-reset" id="editSkillTypeReset">초기화</button>
         </div>
       </div>
     </div>
@@ -1544,6 +1643,34 @@ function gradeClass(grade) {
   return (GRADE_STYLE[grade] && GRADE_STYLE[grade].cls) || 'grade-default';
 }
 
+// ===== 스킬 타입 정의 (메인 필터 + 캐릭터 편집 양쪽에서 사용) =====
+const SKILL_TYPES = [
+  { id: 'st_bang', label: '방깍', desc: '방어력 감소' },
+  { id: 'st_igam', label: '이감', desc: '이동속도 감소' },
+  { id: 'st_stun', label: '스턴', desc: '범위 스턴' },
+  { id: 'st_single_stun', label: '단일스턴', desc: '단일 적 스턴' },
+  { id: 'st_gong', label: '공증', desc: '공격력 버프' },
+  { id: 'st_speed', label: '공속', desc: '공격속도 버프' },
+  { id: 'st_chegen', label: '체젠', desc: '체력회복' },
+  { id: 'st_end', label: '끝딜', desc: '단일 적 전체체력 %데미지' },
+  { id: 'st_single', label: '단일딜', desc: '단일 적 현재체력 %데미지' },
+  { id: 'st_losthp', label: '잃퍼딜', desc: '단일 적 잃은체력 %데미지' },
+  { id: 'st_splash', label: '스플뎀', desc: '스플래시 데미지' },
+  { id: 'st_armorbreak', label: '암브', desc: '아머브레이크' },
+  { id: 'st_boss', label: '보스특화', desc: '보스특화' },
+  { id: 'st_delete', label: '삭제', desc: '유닛삭제' },
+  { id: 'st_air', label: '공중이동', desc: '공중이동' },
+  { id: 'st_dock', label: '도킹', desc: '마법데미지 증폭' },
+  { id: 'st_mabang', label: '마방깍', desc: '마법방어력 감소' },
+  { id: 'st_mana', label: '마나젠', desc: '마나회복' },
+  { id: 'st_rangeboss', label: '범퍼', desc: '범위 적 전체체력 %데미지' },
+  { id: 'st_rangelost', label: '범퍼잃퍼', desc: '범위 적 잃은체력 %데미지' },
+  { id: 'st_rangehp', label: '범퍼현퍼', desc: '범위 적 현재체력 %데미지' },
+  { id: 'st_gwang', label: '광폭화', desc: '광폭화 특화' },
+  { id: 'st_blink', label: '순간이동', desc: '순간이동' },
+  { id: 'st_explo', label: '폭발증폭', desc: '폭발형 데미지 증폭' },
+];
+
 // --- 데이터 인덱싱 ---
 
 // =====================================================================
@@ -1624,6 +1751,7 @@ function applyAllOverrides(data, allOverrides) {
       if (o.skill !== undefined) c.skill = o.skill;
       if (o.image !== undefined) c.image = o.image;
       if (o.command !== undefined) c.command = o.command;
+      if (o.skillTypes !== undefined) c.skillTypes = o.skillTypes;
     }
     if (Object.keys(renameMap).length && c.materials) {
       c.materials = c.materials.map(m => renameMap[m] || m);
@@ -1751,6 +1879,7 @@ rebuildIndexes();
 
 // --- 등급 필터 칩 ---
 let activeGrade = null; // null = 전체
+let activeSkillTypes = new Set(); // 선택된 스킬 타입 id들 (OR 방식)
 
 function renderGradeFilter() {
   const grades = [...new Set(DISPLAY_DATA.map(c => c.grade))]
@@ -1762,6 +1891,27 @@ function renderGradeFilter() {
     el.addEventListener('click', () => {
       activeGrade = el.dataset.grade || null;
       renderGradeFilter();
+      runSearch();
+    });
+  });
+}
+
+function renderSkillTypeFilter() {
+  const wrap = document.getElementById('skilltypeFilter');
+  wrap.innerHTML = SKILL_TYPES.map(t =>
+    `<span class="skilltype-chip ${activeSkillTypes.has(t.id) ? 'active' : ''}"
+      data-id="${escapeHtml(t.id)}"
+      title="${escapeHtml(t.desc)}">${escapeHtml(t.label)}</span>`
+  ).join('');
+  wrap.querySelectorAll('.skilltype-chip').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.id;
+      if (activeSkillTypes.has(id)) {
+        activeSkillTypes.delete(id);
+      } else {
+        activeSkillTypes.add(id);
+      }
+      renderSkillTypeFilter();
       runSearch();
     });
   });
@@ -1842,6 +1992,13 @@ function runSearch() {
   let filtered = DISPLAY_DATA.filter(c => matchCharacter(c, query));
   if (activeGrade) {
     filtered = filtered.filter(c => c.grade === activeGrade);
+  }
+  if (activeSkillTypes.size > 0) {
+    // OR 방식: 선택된 스킬 타입 중 하나라도 가지고 있으면 표시
+    filtered = filtered.filter(c => {
+      const ct = c.skillTypes || [];
+      return [...activeSkillTypes].some(tid => ct.includes(tid));
+    });
   }
 
   document.getElementById('countBadge').textContent = filtered.length + '종';
@@ -1968,6 +2125,19 @@ function openModal(id) {
   } else {
     skillTextEl.textContent = '아직 작성된 스킬 정보가 없습니다. ✏️ 작성 버튼을 눌러 적어보세요.';
     skillTextEl.classList.add('empty');
+  }
+
+  // 스킬 타입 (복수 선택 태그)
+  const skilltypeDisplay = document.getElementById('skilltypeDisplay');
+  document.getElementById('editSkillTypeBox').classList.remove('open');
+  const types = c.skillTypes || [];
+  if (types.length > 0) {
+    skilltypeDisplay.innerHTML = types.map(tid => {
+      const t = SKILL_TYPES.find(x => x.id === tid);
+      return t ? `<span class="skilltype-badge" title="${escapeHtml(t.desc)}">${escapeHtml(t.label)}</span>` : '';
+    }).join('');
+  } else {
+    skilltypeDisplay.innerHTML = `<span class="skilltype-badge empty">아직 등록된 스킬 타입이 없습니다. ✏️ 선택 버튼을 눌러 지정해보세요.</span>`;
   }
 
   // 조합 명령어 (재료를 다 모은 뒤 타이핑해야 하는 키워드)
@@ -2479,6 +2649,57 @@ document.getElementById('editCommandReset').addEventListener('click', () => {
   openModal(currentModalId);
 });
 
+// --- 스킬 타입 선택 ---
+function renderSkillTypeCheckboxes(selectedIds) {
+  const grid = document.getElementById('skilltypeCheckboxGrid');
+  grid.innerHTML = SKILL_TYPES.map(t => `
+    <label class="skilltype-check-item ${selectedIds.includes(t.id) ? 'checked' : ''}" data-id="${escapeHtml(t.id)}">
+      <input type="checkbox" ${selectedIds.includes(t.id) ? 'checked' : ''} value="${escapeHtml(t.id)}">
+      ${escapeHtml(t.label)}
+    </label>
+  `).join('');
+  grid.querySelectorAll('.skilltype-check-item').forEach(el => {
+    el.addEventListener('click', () => {
+      el.classList.toggle('checked');
+      const cb = el.querySelector('input');
+      cb.checked = !cb.checked;
+    });
+  });
+}
+
+document.getElementById('editSkillTypeBtn').addEventListener('click', () => {
+  if (!currentModalId) return;
+  const c = byId[currentModalId];
+  const current = c.skillTypes || [];
+  renderSkillTypeCheckboxes(current);
+  document.getElementById('editSkillTypeBox').classList.add('open');
+});
+
+document.getElementById('editSkillTypeCancel').addEventListener('click', () => {
+  document.getElementById('editSkillTypeBox').classList.remove('open');
+});
+
+document.getElementById('editSkillTypeReset').addEventListener('click', () => {
+  renderSkillTypeCheckboxes([]);
+});
+
+document.getElementById('editSkillTypeSave').addEventListener('click', () => {
+  if (!currentModalId) return;
+  const checked = [...document.querySelectorAll('#skilltypeCheckboxGrid .skilltype-check-item.checked')]
+    .map(el => el.dataset.id);
+  const charName = byId[currentModalId].name;
+
+  lastSavedByMe = { id: currentModalId, at: Date.now() };
+  pushOverride(currentModalId, { skillTypes: checked });
+  applyAllOverrides(DISPLAY_DATA, sharedOverrides);
+
+  document.getElementById('editSkillTypeBox').classList.remove('open');
+  openModal(currentModalId);
+  renderSkillTypeFilter();
+  runSearch();
+  showSyncToast(`"${charName}" 스킬 타입이 저장됐어요`, 'mine');
+});
+
 // --- 캐릭터 삭제 ---
 document.getElementById('deleteCharBtn').addEventListener('click', () => {
   if (!currentModalId) return;
@@ -2538,6 +2759,7 @@ document.getElementById('dismissInstall').addEventListener('click', () => {
 
 // --- 초기 렌더 ---
 renderGradeFilter();
+renderSkillTypeFilter();
 renderTagHints();
 runSearch();
 
