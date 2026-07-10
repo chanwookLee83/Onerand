@@ -6,8 +6,6 @@
 <title>원랜디 도감</title>
 <meta name="theme-color" content="#1b2a3a">
 <meta name="description" content="원피스 랜덤 디펜스 조합 도감 - 캐릭터 검색 및 조합 역추적">
-
-<!-- PWA: manifest -->
 <link rel="manifest" href="./manifest.json">
 <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16.png">
@@ -20,7 +18,6 @@
 <meta name="apple-mobile-web-app-title" content="원랜디 도감">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="원랜디 도감">
-
 <style>
   :root{
     --ink:#1b2a3a;
@@ -809,18 +806,20 @@
     font-size:12px;
     color:var(--ink);
     cursor:pointer;
-    padding:4px 9px;
+    padding:6px 11px;
     border-radius:8px;
     border:1.5px solid var(--rope);
     background:rgba(255,255,255,0.4);
     user-select:none;
+    transition:all .12s;
   }
+  .skilltype-check-item:active{ opacity:0.7; }
   .skilltype-check-item.checked{
     background:var(--rust);
     color:#fff;
     border-color:var(--rust);
+    font-weight:700;
   }
-  .skilltype-check-item input{ display:none; }
 
   .edit-command-box{
     display:none;
@@ -833,6 +832,54 @@
     background:rgba(255,255,255,0.35);
   }
   .edit-command-box.open{ display:flex; }
+
+  /* 계열 */
+  .lineage-display{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    min-height:22px;
+  }
+  .lineage-badge{
+    font-size:12px;
+    font-weight:700;
+    padding:4px 12px;
+    border-radius:999px;
+    white-space:nowrap;
+  }
+  .lineage-badge.magic{ background:#5b4fcf; color:#e8e4ff; }
+  .lineage-badge.physical{ background:#b84c2a; color:#ffe8e0; }
+  .lineage-badge.both{ background:linear-gradient(90deg,#5b4fcf,#b84c2a); color:#fff; }
+  .lineage-badge.empty{ color:var(--text-dim); font-style:italic; background:none; font-size:12px; font-weight:400; }
+  .edit-lineage-box{
+    display:none;
+    flex-direction:column;
+    gap:8px;
+    margin-top:10px;
+    padding:10px;
+    border:1px dashed var(--rope);
+    border-radius:10px;
+    background:rgba(255,255,255,0.35);
+  }
+  .edit-lineage-box.open{ display:flex; }
+  .lineage-btn-group{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .lineage-select-btn{
+    font-size:13px;
+    font-weight:700;
+    padding:9px 16px;
+    border-radius:10px;
+    border:1.5px solid var(--rope);
+    background:rgba(255,255,255,0.5);
+    color:var(--ink);
+    cursor:pointer;
+    flex:1;
+  }
+  .lineage-select-btn:active{ opacity:0.7; }
+
 
   .recipe-row{
     display:flex;
@@ -1300,6 +1347,7 @@
   </div>
   <div class="hint-row" id="tagHints"></div>
   <div class="grade-filter-row" id="gradeFilter"></div>
+  <div class="skilltype-filter-row" id="lineageFilter"></div>
   <div class="skilltype-filter-row" id="skilltypeFilter"></div>
 </header>
 
@@ -1395,17 +1443,19 @@
 
     <div class="modal-section">
       <div class="section-label-row">
-        <div class="section-label">🎯 스킬</div>
-        <button class="edit-recipe-btn" id="editSkillBtn" title="스킬 작성/수정">✏️ 작성</button>
+        <div class="section-label">⚔️ 계열</div>
+        <button class="edit-recipe-btn" id="editLineageBtn" title="계열 선택">✏️ 선택</button>
       </div>
-      <div class="skill-text" id="skillText"></div>
-
-      <div class="edit-skill-box" id="editSkillBox">
-        <textarea id="editSkillInput" class="edit-skill-input" maxlength="800" placeholder="스킬 이름과 효과를 자유롭게 적어주세요. 줄바꿈으로 여러 항목을 구분할 수 있어요."></textarea>
+      <div class="lineage-display" id="lineageDisplay"></div>
+      <div class="edit-lineage-box" id="editLineageBox">
+        <div class="lineage-btn-group">
+          <button class="lineage-select-btn" data-val="마법">🔮 마법</button>
+          <button class="lineage-select-btn" data-val="물리">⚔️ 물리</button>
+          <button class="lineage-select-btn" data-val="마법+물리">🔮⚔️ 마법+물리</button>
+        </div>
         <div class="edit-recipe-buttons">
-          <button class="edit-name-save" id="editSkillSave">저장</button>
-          <button class="edit-name-cancel" id="editSkillCancel">취소</button>
-          <button class="edit-name-reset" id="editSkillReset">지우기</button>
+          <button class="edit-name-cancel" id="editLineageCancel">취소</button>
+          <button class="edit-name-reset" id="editLineageReset">지우기</button>
         </div>
       </div>
     </div>
@@ -1752,6 +1802,7 @@ function applyAllOverrides(data, allOverrides) {
       if (o.image !== undefined) c.image = o.image;
       if (o.command !== undefined) c.command = o.command;
       if (o.skillTypes !== undefined) c.skillTypes = o.skillTypes;
+      if (o.lineage !== undefined) c.lineage = o.lineage;
     }
     if (Object.keys(renameMap).length && c.materials) {
       c.materials = c.materials.map(m => renameMap[m] || m);
@@ -1880,6 +1931,27 @@ rebuildIndexes();
 // --- 등급 필터 칩 ---
 let activeGrade = null; // null = 전체
 let activeSkillTypes = new Set(); // 선택된 스킬 타입 id들 (OR 방식)
+let activeLineage = null; // null=전체, '마법', '물리', '마법+물리'
+
+function renderLineageFilter() {
+  const wrap = document.getElementById('lineageFilter');
+  const options = [
+    { val: null,        label: '계열 전체', icon: '' },
+    { val: '마법',      label: '마법',      icon: '🔮 ' },
+    { val: '물리',      label: '물리',      icon: '⚔️ ' },
+    { val: '마법+물리', label: '마법+물리', icon: '🔮⚔️ ' },
+  ];
+  wrap.innerHTML = options.map(o =>
+    `<span class="skilltype-chip ${activeLineage === o.val ? 'active' : ''}" data-val="${escapeHtml(o.val ?? '')}">${o.icon}${escapeHtml(o.label)}</span>`
+  ).join('');
+  wrap.querySelectorAll('.skilltype-chip').forEach(el => {
+    el.addEventListener('click', () => {
+      activeLineage = el.dataset.val || null;
+      renderLineageFilter();
+      runSearch();
+    });
+  });
+}
 
 function renderGradeFilter() {
   const grades = [...new Set(DISPLAY_DATA.map(c => c.grade))]
@@ -1992,6 +2064,9 @@ function runSearch() {
   let filtered = DISPLAY_DATA.filter(c => matchCharacter(c, query));
   if (activeGrade) {
     filtered = filtered.filter(c => c.grade === activeGrade);
+  }
+  if (activeLineage) {
+    filtered = filtered.filter(c => c.lineage === activeLineage);
   }
   if (activeSkillTypes.size > 0) {
     // OR 방식: 선택된 스킬 타입 중 하나라도 가지고 있으면 표시
@@ -2116,15 +2191,15 @@ function openModal(id) {
     subSection.style.display = 'none';
   }
 
-  // 스킬 (사용자가 직접 작성)
-  const skillTextEl = document.getElementById('skillText');
-  document.getElementById('editSkillBox').classList.remove('open');
-  if (c.skill && c.skill.trim()) {
-    skillTextEl.textContent = c.skill;
-    skillTextEl.classList.remove('empty');
+  // 계열 (마법/물리)
+  const lineageDisplay = document.getElementById('lineageDisplay');
+  document.getElementById('editLineageBox').classList.remove('open');
+  if (c.lineage) {
+    const cls = c.lineage === '마법' ? 'magic' : c.lineage === '물리' ? 'physical' : 'both';
+    const icon = c.lineage === '마법' ? '🔮' : c.lineage === '물리' ? '⚔️' : '🔮⚔️';
+    lineageDisplay.innerHTML = `<span class="lineage-badge ${cls}">${icon} ${escapeHtml(c.lineage)}</span>`;
   } else {
-    skillTextEl.textContent = '아직 작성된 스킬 정보가 없습니다. ✏️ 작성 버튼을 눌러 적어보세요.';
-    skillTextEl.classList.add('empty');
+    lineageDisplay.innerHTML = `<span class="lineage-badge empty">아직 등록된 계열이 없습니다. ✏️ 선택 버튼을 눌러 지정해보세요.</span>`;
   }
 
   // 스킬 타입 (복수 선택 태그)
@@ -2528,42 +2603,41 @@ document.getElementById('newCharSubmit').addEventListener('click', () => {
   showSyncToast(`"${name}" 캐릭터가 추가됐어요`, 'mine');
 });
 
-// --- 스킬 작성 ---
-document.getElementById('editSkillBtn').addEventListener('click', () => {
-  if (!currentModalId) return;
-  const c = byId[currentModalId];
-  const box = document.getElementById('editSkillBox');
-  const input = document.getElementById('editSkillInput');
-  input.value = c.skill || '';
-  box.classList.add('open');
-  input.focus();
+// --- 계열 선택 ---
+document.getElementById('editLineageBtn').addEventListener('click', () => {
+  document.getElementById('editLineageBox').classList.add('open');
 });
 
-document.getElementById('editSkillCancel').addEventListener('click', () => {
-  document.getElementById('editSkillBox').classList.remove('open');
+document.getElementById('editLineageCancel').addEventListener('click', () => {
+  document.getElementById('editLineageBox').classList.remove('open');
 });
 
-document.getElementById('editSkillSave').addEventListener('click', () => {
+document.getElementById('editLineageReset').addEventListener('click', () => {
   if (!currentModalId) return;
-  const newSkill = document.getElementById('editSkillInput').value;
-  const charName = byId[currentModalId].name;
-
-  lastSavedByMe = { id: currentModalId, at: Date.now() };
-  pushOverride(currentModalId, { skill: newSkill });
-  applyAllOverrides(CHARACTER_DATA, sharedOverrides);
-
-  document.getElementById('editSkillBox').classList.remove('open');
+  removeOverrideField(currentModalId, 'lineage');
+  byId[currentModalId].lineage = null;
+  document.getElementById('editLineageBox').classList.remove('open');
   openModal(currentModalId);
-  showSyncToast(`"${charName}" 스킬이 저장됐어요`, 'mine');
+  renderLineageFilter();
+  runSearch();
 });
 
-document.getElementById('editSkillReset').addEventListener('click', () => {
-  if (!currentModalId) return;
-  removeOverrideField(currentModalId, 'skill');
-  byId[currentModalId].skill = '';
+document.querySelectorAll('.lineage-select-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!currentModalId) return;
+    const val = btn.dataset.val;
+    const charName = byId[currentModalId].name;
 
-  document.getElementById('editSkillBox').classList.remove('open');
-  openModal(currentModalId);
+    lastSavedByMe = { id: currentModalId, at: Date.now() };
+    pushOverride(currentModalId, { lineage: val });
+    applyAllOverrides(DISPLAY_DATA, sharedOverrides);
+
+    document.getElementById('editLineageBox').classList.remove('open');
+    openModal(currentModalId);
+    renderLineageFilter();
+    runSearch();
+    showSyncToast(`"${charName}" 계열이 저장됐어요`, 'mine');
+  });
 });
 
 // --- 이미지 URL 수정 ---
@@ -2653,16 +2727,13 @@ document.getElementById('editCommandReset').addEventListener('click', () => {
 function renderSkillTypeCheckboxes(selectedIds) {
   const grid = document.getElementById('skilltypeCheckboxGrid');
   grid.innerHTML = SKILL_TYPES.map(t => `
-    <label class="skilltype-check-item ${selectedIds.includes(t.id) ? 'checked' : ''}" data-id="${escapeHtml(t.id)}">
-      <input type="checkbox" ${selectedIds.includes(t.id) ? 'checked' : ''} value="${escapeHtml(t.id)}">
+    <div class="skilltype-check-item ${selectedIds.includes(t.id) ? 'checked' : ''}" data-id="${escapeHtml(t.id)}">
       ${escapeHtml(t.label)}
-    </label>
+    </div>
   `).join('');
   grid.querySelectorAll('.skilltype-check-item').forEach(el => {
     el.addEventListener('click', () => {
       el.classList.toggle('checked');
-      const cb = el.querySelector('input');
-      cb.checked = !cb.checked;
     });
   });
 }
@@ -2759,11 +2830,11 @@ document.getElementById('dismissInstall').addEventListener('click', () => {
 
 // --- 초기 렌더 ---
 renderGradeFilter();
+renderLineageFilter();
 renderSkillTypeFilter();
 renderTagHints();
 runSearch();
 
-// --- PWA: 서비스워커 등록 ---
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./service-worker.js')
