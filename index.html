@@ -799,6 +799,42 @@
     flex-wrap:wrap;
     gap:7px;
   }
+
+  /* 선택된 스킬 타입 수치 입력 영역 */
+  .skilltype-val-list{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    margin-top:6px;
+  }
+  .skilltype-val-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .skilltype-val-label{
+    font-size:12px;
+    font-weight:700;
+    color:var(--rust);
+    min-width:70px;
+    flex:none;
+  }
+  .skilltype-val-input{
+    flex:1;
+    font-size:13px;
+    padding:6px 10px;
+    border:1px solid var(--rope);
+    border-radius:8px;
+    background:rgba(255,255,255,0.7);
+    color:var(--ink);
+    font-family:inherit;
+  }
+  .skilltype-val-hint{
+    font-size:11px;
+    color:var(--text-dim);
+    flex:none;
+  }
+
   .skilltype-check-item{
     display:flex;
     align-items:center;
@@ -879,6 +915,22 @@
     flex:1;
   }
   .lineage-select-btn:active{ opacity:0.7; }
+
+  .lineage-custom-row{
+    display:flex;
+    gap:6px;
+    align-items:center;
+  }
+  .lineage-custom-row .edit-name-input{
+    flex:1;
+    font-size:13px;
+    padding:7px 10px;
+    border:1px solid var(--rope);
+    border-radius:8px;
+    background:rgba(255,255,255,0.7);
+    color:var(--ink);
+    font-family:inherit;
+  }
 
 
   .recipe-row{
@@ -1448,10 +1500,14 @@
       </div>
       <div class="lineage-display" id="lineageDisplay"></div>
       <div class="edit-lineage-box" id="editLineageBox">
-        <div class="lineage-btn-group">
+        <div class="lineage-btn-group" id="lineageBtnGroup">
           <button class="lineage-select-btn" data-val="마법">🔮 마법</button>
           <button class="lineage-select-btn" data-val="물리">⚔️ 물리</button>
           <button class="lineage-select-btn" data-val="마법+물리">🔮⚔️ 마법+물리</button>
+        </div>
+        <div class="lineage-custom-row">
+          <input type="text" id="lineageCustomInput" class="edit-name-input" maxlength="20" placeholder="직접 입력 (예: 고정딜, 지원형 등)">
+          <button class="edit-name-save" id="lineageCustomAdd">추가</button>
         </div>
         <div class="edit-recipe-buttons">
           <button class="edit-name-cancel" id="editLineageCancel">취소</button>
@@ -1468,6 +1524,7 @@
       <div class="skilltype-display" id="skilltypeDisplay"></div>
       <div class="edit-skilltype-box" id="editSkillTypeBox">
         <div class="skilltype-checkbox-grid" id="skilltypeCheckboxGrid"></div>
+        <div class="skilltype-val-list" id="skilltypeValList"></div>
         <div class="edit-recipe-buttons">
           <button class="edit-name-save" id="editSkillTypeSave">저장</button>
           <button class="edit-name-cancel" id="editSkillTypeCancel">취소</button>
@@ -1935,11 +1992,13 @@ let activeLineage = null; // null=전체, '마법', '물리', '마법+물리'
 
 function renderLineageFilter() {
   const wrap = document.getElementById('lineageFilter');
+  const customs = typeof loadCustomLineages === 'function' ? loadCustomLineages() : [];
   const options = [
     { val: null,        label: '계열 전체', icon: '' },
     { val: '마법',      label: '마법',      icon: '🔮 ' },
     { val: '물리',      label: '물리',      icon: '⚔️ ' },
     { val: '마법+물리', label: '마법+물리', icon: '🔮⚔️ ' },
+    ...customs.map(v => ({ val: v, label: v, icon: '' })),
   ];
   wrap.innerHTML = options.map(o =>
     `<span class="skilltype-chip ${activeLineage === o.val ? 'active' : ''}" data-val="${escapeHtml(o.val ?? '')}">${o.icon}${escapeHtml(o.label)}</span>`
@@ -2070,8 +2129,9 @@ function runSearch() {
   }
   if (activeSkillTypes.size > 0) {
     // OR 방식: 선택된 스킬 타입 중 하나라도 가지고 있으면 표시
+    // skillTypes가 string[] (구버전) 또는 {id,val}[] (신버전) 모두 지원
     filtered = filtered.filter(c => {
-      const ct = c.skillTypes || [];
+      const ct = (c.skillTypes || []).map(e => typeof e === 'string' ? e : e.id);
       return [...activeSkillTypes].some(tid => ct.includes(tid));
     });
   }
@@ -2202,14 +2262,19 @@ function openModal(id) {
     lineageDisplay.innerHTML = `<span class="lineage-badge empty">아직 등록된 계열이 없습니다. ✏️ 선택 버튼을 눌러 지정해보세요.</span>`;
   }
 
-  // 스킬 타입 (복수 선택 태그)
+  // 스킬 타입 (복수 선택 + 수치)
   const skilltypeDisplay = document.getElementById('skilltypeDisplay');
   document.getElementById('editSkillTypeBox').classList.remove('open');
   const types = c.skillTypes || [];
   if (types.length > 0) {
-    skilltypeDisplay.innerHTML = types.map(tid => {
+    skilltypeDisplay.innerHTML = types.map(entry => {
+      // 구버전 string 형식과 신버전 {id, val} 형식 모두 지원
+      const tid = typeof entry === 'string' ? entry : entry.id;
+      const val = typeof entry === 'string' ? '' : (entry.val || '');
       const t = SKILL_TYPES.find(x => x.id === tid);
-      return t ? `<span class="skilltype-badge" title="${escapeHtml(t.desc)}">${escapeHtml(t.label)}</span>` : '';
+      if (!t) return '';
+      const valText = val ? ` <span style="opacity:0.8;font-weight:400">${escapeHtml(val)}</span>` : '';
+      return `<span class="skilltype-badge" title="${escapeHtml(t.desc)}">${escapeHtml(t.label)}${valText}</span>`;
     }).join('');
   } else {
     skilltypeDisplay.innerHTML = `<span class="skilltype-badge empty">아직 등록된 스킬 타입이 없습니다. ✏️ 선택 버튼을 눌러 지정해보세요.</span>`;
@@ -2604,8 +2669,52 @@ document.getElementById('newCharSubmit').addEventListener('click', () => {
 });
 
 // --- 계열 선택 ---
+const LINEAGE_CUSTOM_KEY = 'wonrandy_custom_lineages';
+
+function loadCustomLineages() {
+  try {
+    const raw = localStorage.getItem(LINEAGE_CUSTOM_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) { return []; }
+}
+function saveCustomLineages(list) {
+  try { localStorage.setItem(LINEAGE_CUSTOM_KEY, JSON.stringify(list)); } catch (e) {}
+}
+
+// 편집 박스의 버튼들을 기본값 + 커스텀값으로 렌더링
+function renderLineageBtns() {
+  const defaults = [
+    { val: '마법', label: '🔮 마법' },
+    { val: '물리', label: '⚔️ 물리' },
+    { val: '마법+물리', label: '🔮⚔️ 마법+물리' },
+  ];
+  const customs = loadCustomLineages();
+  const group = document.getElementById('lineageBtnGroup');
+  group.innerHTML = [...defaults, ...customs.map(v => ({ val: v, label: v }))].map(o =>
+    `<button class="lineage-select-btn" data-val="${escapeHtml(o.val)}">${escapeHtml(o.label)}</button>`
+  ).join('');
+  group.querySelectorAll('.lineage-select-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!currentModalId) return;
+      const val = btn.dataset.val;
+      const charName = byId[currentModalId].name;
+      lastSavedByMe = { id: currentModalId, at: Date.now() };
+      pushOverride(currentModalId, { lineage: val });
+      applyAllOverrides(DISPLAY_DATA, sharedOverrides);
+      document.getElementById('editLineageBox').classList.remove('open');
+      openModal(currentModalId);
+      renderLineageFilter();
+      runSearch();
+      showSyncToast(`"${charName}" 계열이 저장됐어요`, 'mine');
+    });
+  });
+}
+
 document.getElementById('editLineageBtn').addEventListener('click', () => {
+  renderLineageBtns();
+  document.getElementById('lineageCustomInput').value = '';
   document.getElementById('editLineageBox').classList.add('open');
+  document.getElementById('lineageCustomInput').focus();
 });
 
 document.getElementById('editLineageCancel').addEventListener('click', () => {
@@ -2622,22 +2731,36 @@ document.getElementById('editLineageReset').addEventListener('click', () => {
   runSearch();
 });
 
-document.querySelectorAll('.lineage-select-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (!currentModalId) return;
-    const val = btn.dataset.val;
-    const charName = byId[currentModalId].name;
+// 직접 입력 → 버튼 추가 후 자동 선택
+document.getElementById('lineageCustomAdd').addEventListener('click', () => {
+  const input = document.getElementById('lineageCustomInput');
+  const val = input.value.trim();
+  if (!val) return;
 
-    lastSavedByMe = { id: currentModalId, at: Date.now() };
-    pushOverride(currentModalId, { lineage: val });
-    applyAllOverrides(DISPLAY_DATA, sharedOverrides);
+  // 커스텀 목록에 저장 (중복 제거)
+  const customs = loadCustomLineages();
+  const defaults = ['마법', '물리', '마법+물리'];
+  if (!defaults.includes(val) && !customs.includes(val)) {
+    customs.push(val);
+    saveCustomLineages(customs);
+  }
 
-    document.getElementById('editLineageBox').classList.remove('open');
-    openModal(currentModalId);
-    renderLineageFilter();
-    runSearch();
-    showSyncToast(`"${charName}" 계열이 저장됐어요`, 'mine');
-  });
+  // 바로 선택 적용
+  if (!currentModalId) return;
+  const charName = byId[currentModalId].name;
+  lastSavedByMe = { id: currentModalId, at: Date.now() };
+  pushOverride(currentModalId, { lineage: val });
+  applyAllOverrides(DISPLAY_DATA, sharedOverrides);
+  document.getElementById('editLineageBox').classList.remove('open');
+  openModal(currentModalId);
+  renderLineageFilter();
+  runSearch();
+  showSyncToast(`"${charName}" 계열이 저장됐어요`, 'mine');
+});
+
+// Enter 키로도 추가 가능
+document.getElementById('lineageCustomInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('lineageCustomAdd').click();
 });
 
 // --- 이미지 URL 수정 ---
@@ -2724,16 +2847,70 @@ document.getElementById('editCommandReset').addEventListener('click', () => {
 });
 
 // --- 스킬 타입 선택 ---
-function renderSkillTypeCheckboxes(selectedIds) {
+// 편집 중인 스킬 타입 수치 상태 {id: val}
+let editingSkillTypeVals = {};
+
+function renderSkillTypeCheckboxes(selectedEntries) {
+  // selectedEntries: [{id, val}] 또는 string[] (구버전 호환)
+  const selectedMap = {};
+  selectedEntries.forEach(e => {
+    if (typeof e === 'string') selectedMap[e] = '';
+    else selectedMap[e.id] = e.val || '';
+  });
+  editingSkillTypeVals = { ...selectedMap };
+
   const grid = document.getElementById('skilltypeCheckboxGrid');
   grid.innerHTML = SKILL_TYPES.map(t => `
-    <div class="skilltype-check-item ${selectedIds.includes(t.id) ? 'checked' : ''}" data-id="${escapeHtml(t.id)}">
+    <div class="skilltype-check-item ${selectedMap[t.id] !== undefined ? 'checked' : ''}" data-id="${escapeHtml(t.id)}">
       ${escapeHtml(t.label)}
     </div>
   `).join('');
+
   grid.querySelectorAll('.skilltype-check-item').forEach(el => {
     el.addEventListener('click', () => {
-      el.classList.toggle('checked');
+      const id = el.dataset.id;
+      if (el.classList.contains('checked')) {
+        el.classList.remove('checked');
+        delete editingSkillTypeVals[id];
+      } else {
+        el.classList.add('checked');
+        editingSkillTypeVals[id] = '';
+      }
+      renderSkillTypeValList();
+    });
+  });
+
+  renderSkillTypeValList();
+}
+
+function renderSkillTypeValList() {
+  const valList = document.getElementById('skilltypeValList');
+  const checkedIds = [...document.querySelectorAll('#skilltypeCheckboxGrid .skilltype-check-item.checked')]
+    .map(el => el.dataset.id);
+
+  if (checkedIds.length === 0) {
+    valList.innerHTML = '';
+    return;
+  }
+
+  valList.innerHTML = checkedIds.map(id => {
+    const t = SKILL_TYPES.find(x => x.id === id);
+    if (!t) return '';
+    const cur = editingSkillTypeVals[id] || '';
+    return `
+      <div class="skilltype-val-row">
+        <span class="skilltype-val-label">${escapeHtml(t.label)}</span>
+        <input type="text" class="skilltype-val-input" data-id="${escapeHtml(id)}"
+          value="${escapeHtml(cur)}"
+          placeholder="수치 입력 (예: -50, 75% 등, 없으면 비워두세요)">
+        <span class="skilltype-val-hint">선택사항</span>
+      </div>
+    `;
+  }).join('');
+
+  valList.querySelectorAll('.skilltype-val-input').forEach(input => {
+    input.addEventListener('input', () => {
+      editingSkillTypeVals[input.dataset.id] = input.value;
     });
   });
 }
@@ -2751,15 +2928,22 @@ document.getElementById('editSkillTypeCancel').addEventListener('click', () => {
 });
 
 document.getElementById('editSkillTypeReset').addEventListener('click', () => {
+  editingSkillTypeVals = {};
   renderSkillTypeCheckboxes([]);
 });
 
 document.getElementById('editSkillTypeSave').addEventListener('click', () => {
   if (!currentModalId) return;
-  const checked = [...document.querySelectorAll('#skilltypeCheckboxGrid .skilltype-check-item.checked')]
-    .map(el => el.dataset.id);
-  const charName = byId[currentModalId].name;
 
+  // 선택된 항목을 {id, val} 배열로 수집
+  const checked = [...document.querySelectorAll('#skilltypeCheckboxGrid .skilltype-check-item.checked')]
+    .map(el => {
+      const id = el.dataset.id;
+      const val = (editingSkillTypeVals[id] || '').trim();
+      return val ? { id, val } : { id, val: '' };
+    });
+
+  const charName = byId[currentModalId].name;
   lastSavedByMe = { id: currentModalId, at: Date.now() };
   pushOverride(currentModalId, { skillTypes: checked });
   applyAllOverrides(DISPLAY_DATA, sharedOverrides);
