@@ -1525,6 +1525,10 @@
       <div class="edit-skilltype-box" id="editSkillTypeBox">
         <div class="skilltype-checkbox-grid" id="skilltypeCheckboxGrid"></div>
         <div class="skilltype-val-list" id="skilltypeValList"></div>
+        <div class="lineage-custom-row">
+          <input type="text" id="skilltypeCustomInput" class="edit-name-input" maxlength="20" placeholder="직접 추가 (예: 광역딜, 무적 등)">
+          <button class="edit-name-save" id="skilltypeCustomAdd">추가</button>
+        </div>
         <div class="edit-recipe-buttons">
           <button class="edit-name-save" id="editSkillTypeSave">저장</button>
           <button class="edit-name-cancel" id="editSkillTypeCancel">취소</button>
@@ -2029,7 +2033,7 @@ function renderGradeFilter() {
 
 function renderSkillTypeFilter() {
   const wrap = document.getElementById('skilltypeFilter');
-  wrap.innerHTML = SKILL_TYPES.map(t =>
+  wrap.innerHTML = getAllSkillTypes().map(t =>
     `<span class="skilltype-chip ${activeSkillTypes.has(t.id) ? 'active' : ''}"
       data-id="${escapeHtml(t.id)}"
       title="${escapeHtml(t.desc)}">${escapeHtml(t.label)}</span>`
@@ -2271,7 +2275,7 @@ function openModal(id) {
       // 구버전 string 형식과 신버전 {id, val} 형식 모두 지원
       const tid = typeof entry === 'string' ? entry : entry.id;
       const val = typeof entry === 'string' ? '' : (entry.val || '');
-      const t = SKILL_TYPES.find(x => x.id === tid);
+      const t = getAllSkillTypes().find(x => x.id === tid);
       if (!t) return '';
       const valText = val ? ` <span style="opacity:0.8;font-weight:400">${escapeHtml(val)}</span>` : '';
       return `<span class="skilltype-badge" title="${escapeHtml(t.desc)}">${escapeHtml(t.label)}${valText}</span>`;
@@ -2850,6 +2854,29 @@ document.getElementById('editCommandReset').addEventListener('click', () => {
 // 편집 중인 스킬 타입 수치 상태 {id: val}
 let editingSkillTypeVals = {};
 
+// 커스텀 스킬 타입 (localStorage에 저장)
+const SKILLTYPE_CUSTOM_KEY = 'wonrandy_custom_skilltypes';
+
+function loadCustomSkillTypes() {
+  try {
+    const raw = localStorage.getItem(SKILLTYPE_CUSTOM_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) { return []; }
+}
+
+function saveCustomSkillTypes(list) {
+  try { localStorage.setItem(SKILLTYPE_CUSTOM_KEY, JSON.stringify(list)); } catch (e) {}
+}
+
+// 기본 SKILL_TYPES + 커스텀 타입을 합친 전체 목록 반환
+function getAllSkillTypes() {
+  const customs = loadCustomSkillTypes();
+  return [
+    ...SKILL_TYPES,
+    ...customs.map(label => ({ id: 'custom_' + label, label, desc: label }))
+  ];
+}
+
 function renderSkillTypeCheckboxes(selectedEntries) {
   // selectedEntries: [{id, val}] 또는 string[] (구버전 호환)
   const selectedMap = {};
@@ -2859,8 +2886,9 @@ function renderSkillTypeCheckboxes(selectedEntries) {
   });
   editingSkillTypeVals = { ...selectedMap };
 
+  const allTypes = getAllSkillTypes();
   const grid = document.getElementById('skilltypeCheckboxGrid');
-  grid.innerHTML = SKILL_TYPES.map(t => `
+  grid.innerHTML = allTypes.map(t => `
     <div class="skilltype-check-item ${selectedMap[t.id] !== undefined ? 'checked' : ''}" data-id="${escapeHtml(t.id)}">
       ${escapeHtml(t.label)}
     </div>
@@ -2893,8 +2921,9 @@ function renderSkillTypeValList() {
     return;
   }
 
+  const allTypes = getAllSkillTypes();
   valList.innerHTML = checkedIds.map(id => {
-    const t = SKILL_TYPES.find(x => x.id === id);
+    const t = allTypes.find(x => x.id === id);
     if (!t) return '';
     const cur = editingSkillTypeVals[id] || '';
     return `
@@ -2902,7 +2931,7 @@ function renderSkillTypeValList() {
         <span class="skilltype-val-label">${escapeHtml(t.label)}</span>
         <input type="text" class="skilltype-val-input" data-id="${escapeHtml(id)}"
           value="${escapeHtml(cur)}"
-          placeholder="수치 입력 (예: -50, 75% 등, 없으면 비워두세요)">
+          placeholder="수치 (예: -50, 75%, 없으면 비워두세요)">
         <span class="skilltype-val-hint">선택사항</span>
       </div>
     `;
@@ -2925,6 +2954,38 @@ document.getElementById('editSkillTypeBtn').addEventListener('click', () => {
 
 document.getElementById('editSkillTypeCancel').addEventListener('click', () => {
   document.getElementById('editSkillTypeBox').classList.remove('open');
+});
+
+// 커스텀 스킬 타입 직접 추가
+document.getElementById('skilltypeCustomAdd').addEventListener('click', () => {
+  const input = document.getElementById('skilltypeCustomInput');
+  const label = input.value.trim();
+  if (!label) return;
+
+  const customs = loadCustomSkillTypes();
+  const existingLabels = [...SKILL_TYPES.map(t => t.label), ...customs];
+  if (!existingLabels.includes(label)) {
+    customs.push(label);
+    saveCustomSkillTypes(customs);
+  }
+
+  // 추가한 타입을 바로 선택 상태로 만들고 체크박스 재렌더링
+  const id = 'custom_' + label;
+  const currentSelected = [...document.querySelectorAll('#skilltypeCheckboxGrid .skilltype-check-item.checked')]
+    .map(el => ({ id: el.dataset.id, val: editingSkillTypeVals[el.dataset.id] || '' }));
+  if (!currentSelected.find(e => e.id === id)) {
+    currentSelected.push({ id, val: '' });
+    editingSkillTypeVals[id] = '';
+  }
+
+  renderSkillTypeCheckboxes(currentSelected);
+  renderSkillTypeFilter();
+  input.value = '';
+  input.focus();
+});
+
+document.getElementById('skilltypeCustomInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('skilltypeCustomAdd').click();
 });
 
 document.getElementById('editSkillTypeReset').addEventListener('click', () => {
