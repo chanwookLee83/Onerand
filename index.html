@@ -2627,7 +2627,7 @@ document.getElementById('editNameSave').addEventListener('click', () => {
 
   lastSavedByMe = { id: currentModalId, at: Date.now() };
   pushOverride(currentModalId, { name: newName });
-  applyAllOverrides(CHARACTER_DATA, sharedOverrides);
+  applyAllOverrides(DISPLAY_DATA, sharedOverrides);
 
   // 인덱스 재구성 (이름이 바뀌었으니 nameToId, usedInIndex를 다시 만들어야 재료 매칭/역추적이 맞는다)
   rebuildIndexes();
@@ -2716,7 +2716,7 @@ document.getElementById('editRecipeSave').addEventListener('click', () => {
     grade: newGrade,
     materials: editingMaterials.slice()
   });
-  applyAllOverrides(CHARACTER_DATA, sharedOverrides);
+  applyAllOverrides(DISPLAY_DATA, sharedOverrides);
   rebuildIndexes();
 
   document.getElementById('editRecipeBox').classList.remove('open');
@@ -3398,7 +3398,7 @@ document.getElementById('editImageSave').addEventListener('click', () => {
 
   lastSavedByMe = { id: currentModalId, at: Date.now() };
   pushOverride(currentModalId, { image: url });
-  applyAllOverrides(CHARACTER_DATA, sharedOverrides);
+  applyAllOverrides(DISPLAY_DATA, sharedOverrides);
 
   document.getElementById('editImageBox').classList.remove('open');
   openModal(currentModalId);
@@ -3439,7 +3439,7 @@ document.getElementById('editCommandSave').addEventListener('click', () => {
 
   lastSavedByMe = { id: currentModalId, at: Date.now() };
   pushOverride(currentModalId, { command: { name: newCommand } });
-  applyAllOverrides(CHARACTER_DATA, sharedOverrides);
+  applyAllOverrides(DISPLAY_DATA, sharedOverrides);
 
   document.getElementById('editCommandBox').classList.remove('open');
   openModal(currentModalId);
