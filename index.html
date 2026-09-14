@@ -1537,6 +1537,35 @@
       </div>
     </div>
 
+    <div class="modal-section" id="synergySection">
+      <div class="section-label-row">
+        <div class="section-label">🤝 궁합 좋은 캐릭터</div>
+        <button class="edit-recipe-btn" id="editSynergyBtn" title="궁합 좋은 캐릭터 추가/수정">✏️ 수정</button>
+      </div>
+      <div class="recipe-row" id="synergyRow"></div>
+      <div id="synergyStatsWrap">
+        <label class="edit-field-label">📊 궁합 합산 스탯</label>
+        <div class="skilltype-display" id="synergyStats"></div>
+      </div>
+
+      <div class="edit-recipe-box" id="editSynergyBox">
+        <label class="edit-field-label">궁합 좋은 캐릭터 (탭해서 검색 후 선택)</label>
+        <div class="edit-mat-list" id="editSynergyList"></div>
+        <div class="edit-mat-actions">
+          <button class="edit-mat-add" id="editSynergyAdd">+ 캐릭터 추가</button>
+        </div>
+        <div id="editSynergyStatsWrap">
+          <label class="edit-field-label">📊 궁합 합산 스탯 (미리보기)</label>
+          <div class="skilltype-display" id="editSynergyStats"></div>
+        </div>
+        <div class="edit-recipe-buttons">
+          <button class="edit-name-save" id="editSynergySave">저장</button>
+          <button class="edit-name-cancel" id="editSynergyCancel">취소</button>
+          <button class="edit-name-reset" id="editSynergyReset">모두 지우기</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-section">
       <div class="section-label">🏷️ 태그</div>
       <div class="tag-row" id="tagRow"></div>
@@ -1555,7 +1584,7 @@
 
 <div class="picker-overlay" id="pickerOverlay">
   <div class="picker-sheet">
-    <div class="picker-title">재료로 쓸 캐릭터 선택</div>
+    <div class="picker-title" id="pickerTitle">재료로 쓸 캐릭터 선택</div>
     <input type="text" id="pickerSearch" class="picker-search" placeholder="이름으로 검색...">
     <div class="picker-list" id="pickerList"></div>
     <button class="picker-close" id="pickerClose">닫기</button>
@@ -1754,6 +1783,9 @@ function gradeClass(grade) {
   return (GRADE_STYLE[grade] && GRADE_STYLE[grade].cls) || 'grade-default';
 }
 
+// "궁합 좋은 캐릭터" 기능은 상위 등급 캐릭터에게만 의미가 있으므로 이 등급들에서만 노출한다.
+const SYNERGY_ENABLED_GRADES = ['히든조합', '전설적인', '초월함', '불멸의', '영원한', '제한됨'];
+
 // ===== 스킬 타입 정의 (메인 필터 + 캐릭터 편집 양쪽에서 사용) =====
 const SKILL_TYPES = [
   { id: 'st_bang', label: '방깍', desc: '방어력 감소' },
@@ -1864,9 +1896,11 @@ function applyAllOverrides(data, allOverrides) {
       if (o.command !== undefined) c.command = o.command;
       if (o.skillTypes !== undefined) c.skillTypes = o.skillTypes;
       if (o.lineage !== undefined) c.lineage = o.lineage;
+      if (o.synergy !== undefined) c.synergy = o.synergy.slice();
     }
-    if (Object.keys(renameMap).length && c.materials) {
-      c.materials = c.materials.map(m => renameMap[m] || m);
+    if (Object.keys(renameMap).length) {
+      if (c.materials) c.materials = c.materials.map(m => renameMap[m] || m);
+      if (c.synergy) c.synergy = c.synergy.map(m => renameMap[m] || m);
     }
   });
 
@@ -2284,6 +2318,38 @@ function openModal(id) {
     skilltypeDisplay.innerHTML = `<span class="skilltype-badge empty">아직 등록된 스킬 타입이 없습니다. ✏️ 선택 버튼을 눌러 지정해보세요.</span>`;
   }
 
+  // 궁합 좋은 캐릭터 (히든조합/전설적인/불멸의/영원한/제한됨 등급 전용)
+  const synergySection = document.getElementById('synergySection');
+  document.getElementById('editSynergyBox').classList.remove('open');
+  if (SYNERGY_ENABLED_GRADES.includes(c.grade)) {
+    synergySection.style.display = '';
+    const synergyRow = document.getElementById('synergyRow');
+    const synergyList = c.synergy || [];
+    if (synergyList.length > 0) {
+      const chips = synergyList.map((sName) => {
+        const sId = nameToId[sName];
+        const sChar = sId ? byId[sId] : null;
+        const gCls = sChar ? gradeClass(sChar.grade) : '';
+        const cls = sId ? `mini-chip ${gCls}` : 'mini-chip no-link';
+        const attr = sId ? `data-id="${sId}"` : '';
+        const badge = sChar ? `<span class="mini-grade-tag ${gCls}">${escapeHtml(sChar.grade)}</span>` : '';
+        return `<span class="${cls}" ${attr}>${badge}${escapeHtml(sName)}</span>`;
+      });
+      synergyRow.innerHTML = chips.join('');
+      synergyRow.querySelectorAll('.mini-chip[data-id]').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openModal(el.dataset.id);
+        });
+      });
+    } else {
+      synergyRow.innerHTML = `<span class="none-text">아직 등록된 궁합 캐릭터가 없습니다. ✏️ 수정 버튼을 눌러 추가해보세요.</span>`;
+    }
+    renderSynergyStats('synergyStatsWrap', 'synergyStats', c, synergyList);
+  } else {
+    synergySection.style.display = 'none';
+  }
+
   // 조합 명령어 (재료를 다 모은 뒤 타이핑해야 하는 키워드)
   const cmdSection = document.getElementById('commandSection');
   const cmdRow = document.getElementById('commandRow');
@@ -2491,8 +2557,9 @@ document.getElementById('editRecipeReset').addEventListener('click', () => {
 // --- 재료 검색 피커 (콜백 방식: 기존 캐릭터 재료수정 / 새 캐릭터 추가 양쪽에서 재사용) ---
 let pickerOnSelect = null; // (선택된 캐릭터 이름) => void
 
-function openPickerWithCallback(onSelect) {
+function openPickerWithCallback(onSelect, title) {
   pickerOnSelect = onSelect;
+  document.getElementById('pickerTitle').textContent = title || '재료로 쓸 캐릭터 선택';
   document.getElementById('pickerSearch').value = '';
   renderPickerList('');
   document.getElementById('pickerOverlay').classList.add('open');
@@ -2547,6 +2614,152 @@ document.getElementById('pickerSearch').addEventListener('input', (e) => {
 document.getElementById('pickerClose').addEventListener('click', closePicker);
 document.getElementById('pickerOverlay').addEventListener('click', (e) => {
   if (e.target.id === 'pickerOverlay') closePicker();
+});
+
+// --- 궁합 좋은 캐릭터 수정 (히든조합/전설적인/불멸의/영원한/제한됨 등급 전용) ---
+let editingSynergy = [];
+
+// 캐릭터 자신 + 궁합 캐릭터들의 스킬 타입을 모아 등급별 합산치를 계산한다.
+// 같은 스킬 타입을 여럿이 갖고 있으면 개수를, 수치(val)가 숫자로 읽히면 합계도 함께 낸다.
+// (수치는 자유 입력 텍스트라 "-50", "75%"처럼 섞여 있을 수 있어 숫자만 정규식으로 뽑아 더한다.)
+function computeSynergyStatSummary(mainChar, synergyNames) {
+  const chars = [mainChar, ...synergyNames.map(n => byId[nameToId[n]]).filter(Boolean)];
+  const stats = {}; // id -> { label, count, sum, hasNumeric, percent }
+
+  chars.forEach(ch => {
+    (ch.skillTypes || []).forEach(entry => {
+      const tid = typeof entry === 'string' ? entry : entry.id;
+      const rawVal = typeof entry === 'string' ? '' : (entry.val || '');
+      const t = getAllSkillTypes().find(x => x.id === tid);
+      if (!t) return;
+
+      if (!stats[tid]) stats[tid] = { label: t.label, count: 0, sum: 0, hasNumeric: false, percent: false };
+      stats[tid].count++;
+
+      // 수치는 "3초간 45%의 이동속도 감소" 같은 자유 문장이라 숫자가 여러 개 섞여
+      // 있을 수 있다. "45%"처럼 %가 붙은 숫자를 최우선으로 실제 효과값으로 보고,
+      // %가 없을 때는 숫자가 딱 하나뿐인 경우에만(지속시간과 헷갈릴 여지가 없을 때만)
+      // 합산 대상으로 삼는다.
+      const str = String(rawVal);
+      const percentMatch = str.match(/-?\d+(?:\.\d+)?\s*%/);
+      if (percentMatch) {
+        stats[tid].sum += parseFloat(percentMatch[0]);
+        stats[tid].hasNumeric = true;
+        stats[tid].percent = true;
+      } else {
+        const allNums = str.match(/-?\d+(?:\.\d+)?/g);
+        if (allNums && allNums.length === 1) {
+          stats[tid].sum += parseFloat(allNums[0]);
+          stats[tid].hasNumeric = true;
+        }
+      }
+    });
+  });
+
+  return stats;
+}
+
+// wrapId(전체 영역) / listId(칩이 들어갈 곳)에 합산 결과를 그려준다.
+// 궁합 캐릭터가 하나도 없으면(=합산할 게 없으면) 영역 자체를 숨긴다.
+function renderSynergyStats(wrapId, listId, mainChar, synergyNames) {
+  const wrap = document.getElementById(wrapId);
+  const list = document.getElementById(listId);
+  if (!wrap || !list) return;
+
+  if (!synergyNames || synergyNames.length === 0) {
+    wrap.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+
+  const stats = Object.values(computeSynergyStatSummary(mainChar, synergyNames));
+  if (stats.length === 0) {
+    wrap.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+
+  wrap.style.display = '';
+  list.innerHTML = stats.map(s => {
+    const sumText = s.hasNumeric ? ` 합계 ${s.sum > 0 ? '+' : ''}${s.sum}${s.percent ? '%' : ''}` : '';
+    return `<span class="skilltype-badge">${escapeHtml(s.label)} ×${s.count}${escapeHtml(sumText)}</span>`;
+  }).join('');
+}
+
+function renderEditSynergyList() {
+  const list = document.getElementById('editSynergyList');
+  list.innerHTML = editingSynergy.map((name, idx) => `
+    <div class="edit-mat-item">
+      <span class="edit-mat-item-text" data-idx="${idx}">${escapeHtml(name)}</span>
+      <button class="edit-mat-item-remove" data-idx="${idx}">✕</button>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('.edit-mat-item-text').forEach(el => {
+    const idx = parseInt(el.dataset.idx, 10);
+    el.addEventListener('click', () => {
+      openPickerWithCallback((name) => {
+        editingSynergy[idx] = name;
+        renderEditSynergyList();
+      }, '궁합 좋은 캐릭터 선택');
+    });
+  });
+  list.querySelectorAll('.edit-mat-item-remove').forEach(el => {
+    el.addEventListener('click', () => {
+      const idx = parseInt(el.dataset.idx, 10);
+      editingSynergy.splice(idx, 1);
+      renderEditSynergyList();
+    });
+  });
+
+  if (currentModalId && byId[currentModalId]) {
+    renderSynergyStats('editSynergyStatsWrap', 'editSynergyStats', byId[currentModalId], editingSynergy);
+  }
+}
+
+document.getElementById('editSynergyBtn').addEventListener('click', () => {
+  if (!currentModalId) return;
+  const c = byId[currentModalId];
+  editingSynergy = (c.synergy || []).slice();
+  renderEditSynergyList();
+  document.getElementById('editSynergyBox').classList.add('open');
+});
+
+document.getElementById('editSynergyCancel').addEventListener('click', () => {
+  document.getElementById('editSynergyBox').classList.remove('open');
+});
+
+document.getElementById('editSynergyAdd').addEventListener('click', () => {
+  const idx = editingSynergy.length;
+  editingSynergy.push('새 캐릭터');
+  renderEditSynergyList();
+  openPickerWithCallback((name) => {
+    editingSynergy[idx] = name;
+    renderEditSynergyList();
+  }, '궁합 좋은 캐릭터 선택');
+});
+
+document.getElementById('editSynergySave').addEventListener('click', () => {
+  if (!currentModalId) return;
+  const charName = byId[currentModalId].name;
+  // 자기 자신 참조와 중복은 제외
+  const cleaned = [...new Set(editingSynergy.filter(n => n && n !== charName))];
+
+  lastSavedByMe = { id: currentModalId, at: Date.now() };
+  pushOverride(currentModalId, { synergy: cleaned });
+  applyAllOverrides(DISPLAY_DATA, sharedOverrides);
+
+  document.getElementById('editSynergyBox').classList.remove('open');
+  openModal(currentModalId);
+  showSyncToast(`"${charName}" 궁합 좋은 캐릭터가 저장됐어요`, 'mine');
+});
+
+document.getElementById('editSynergyReset').addEventListener('click', () => {
+  if (!currentModalId) return;
+  removeOverrideField(currentModalId, 'synergy');
+  byId[currentModalId].synergy = [];
+  document.getElementById('editSynergyBox').classList.remove('open');
+  openModal(currentModalId);
 });
 
 // --- 새 캐릭터 추가 ---
@@ -2685,6 +2898,17 @@ function saveCustomLineages(list) {
   try { localStorage.setItem(LINEAGE_CUSTOM_KEY, JSON.stringify(list)); } catch (e) {}
 }
 
+// 새 계열 태그는 로컬에만 저장하면 이 기기에서만 보이므로, Firebase에도 올려서
+// 다른 기기의 필터 목록에도 나타나게 한다 (캐릭터 삭제/이름 등과 달리 값을
+// 덮어쓰는 게 아니라 목록에 더하기만 하는 것이라 확인창 없이 바로 반영해도 안전).
+function pushCustomLineageRemote(label) {
+  if (fbReady) {
+    fbDb.ref('customLineages').push(label).catch(err => {
+      console.error('커스텀 계열 동기화 실패 (로컬에는 저장됨):', err);
+    });
+  }
+}
+
 // 편집 박스의 버튼들을 기본값 + 커스텀값으로 렌더링
 function renderLineageBtns() {
   const defaults = [
@@ -2747,6 +2971,7 @@ document.getElementById('lineageCustomAdd').addEventListener('click', () => {
   if (!defaults.includes(val) && !customs.includes(val)) {
     customs.push(val);
     saveCustomLineages(customs);
+    pushCustomLineageRemote(val);
   }
 
   // 바로 선택 적용
@@ -2868,6 +3093,16 @@ function saveCustomSkillTypes(list) {
   try { localStorage.setItem(SKILLTYPE_CUSTOM_KEY, JSON.stringify(list)); } catch (e) {}
 }
 
+// 새 스킬 타입 태그도 계열과 마찬가지로 Firebase에 올려서 다른 기기의
+// 필터 목록에 나타나게 한다.
+function pushCustomSkillTypeRemote(label) {
+  if (fbReady) {
+    fbDb.ref('customSkillTypes').push(label).catch(err => {
+      console.error('커스텀 스킬 타입 동기화 실패 (로컬에는 저장됨):', err);
+    });
+  }
+}
+
 // 기본 SKILL_TYPES + 커스텀 타입을 합친 전체 목록 반환
 function getAllSkillTypes() {
   const customs = loadCustomSkillTypes();
@@ -2967,6 +3202,7 @@ document.getElementById('skilltypeCustomAdd').addEventListener('click', () => {
   if (!existingLabels.includes(label)) {
     customs.push(label);
     saveCustomSkillTypes(customs);
+    pushCustomSkillTypeRemote(label);
   }
 
   // 추가한 타입을 바로 선택 상태로 만들고 체크박스 재렌더링
@@ -3192,6 +3428,46 @@ onFirebaseReady(() => {
   }).catch((err) => {
     console.error('Firebase 동기화 확인 실패, 로컬 캐시로 계속 동작합니다:', err);
   });
+});
+
+// --- Firebase: 커스텀 계열 / 스킬 타입 필터 태그 동기화 ---
+// 위의 overrides/customChars/deletedChars와 달리 이 둘은 기존 값을 덮어쓰는 게
+// 아니라 필터 목록에 항목을 "더하기"만 하므로, 확인창 없이 실시간으로 바로
+// 반영한다. on('value')는 구독 시 현재값을 한 번 주고, 그 뒤로도 바뀔 때마다
+// 다시 불러주므로 이미 켜져 있는 다른 기기 화면에도 새로고침 없이 나타난다.
+function mergeRemoteLabelsIntoLocal(localKey, remoteObj) {
+  let local;
+  try {
+    const raw = localStorage.getItem(localKey);
+    local = raw ? JSON.parse(raw) : [];
+  } catch (e) { local = []; }
+
+  let changed = false;
+  Object.values(remoteObj || {}).forEach(label => {
+    if (label && !local.includes(label)) {
+      local.push(label);
+      changed = true;
+    }
+  });
+
+  if (changed) {
+    try { localStorage.setItem(localKey, JSON.stringify(local)); } catch (e) {}
+  }
+  return changed;
+}
+
+onFirebaseReady(() => {
+  fbDb.ref('customSkillTypes').on('value', (snap) => {
+    if (mergeRemoteLabelsIntoLocal(SKILLTYPE_CUSTOM_KEY, snap.val())) {
+      renderSkillTypeFilter();
+    }
+  }, (err) => console.error('커스텀 스킬 타입 동기화 실패:', err));
+
+  fbDb.ref('customLineages').on('value', (snap) => {
+    if (mergeRemoteLabelsIntoLocal(LINEAGE_CUSTOM_KEY, snap.val())) {
+      renderLineageFilter();
+    }
+  }, (err) => console.error('커스텀 계열 동기화 실패:', err));
 });
 
 </script>
