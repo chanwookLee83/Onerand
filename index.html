@@ -3721,12 +3721,36 @@ function stableStringify(value) {
   return '{' + keys.map(k => JSON.stringify(k) + ':' + stableStringify(value[k])).join(',') + '}';
 }
 
+// Firebase는 빈 배열/빈 객체/빈 문자열을 쓰면 그 자리를 아예 만들지 않고 지워버린다
+// (예: 새 캐릭터를 만들 때 태그를 안 넣으면 로컬에는 tags:[] 로 남아있지만, Firebase에
+// 저장했다가 다시 읽어오면 tags 키 자체가 없다). 이 차이 때문에 실제로는 똑같은 내용인데도
+// "달라짐"으로 잘못 판정되는 게 stableStringify만으로는 못 잡히는 두 번째 원인이었다.
+// 그래서 비교 전에 빈 값들을 전부 지워서 "값 없음"과 "빈 배열/빈 문자열"을 같은 것으로 취급한다.
+function normalizeForCompare(value) {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (Array.isArray(value)) {
+    const arr = value.map(normalizeForCompare).filter(v => v !== undefined);
+    return arr.length ? arr : undefined;
+  }
+  if (typeof value === 'object') {
+    const out = {};
+    Object.keys(value).forEach(k => {
+      const nv = normalizeForCompare(value[k]);
+      if (nv !== undefined) out[k] = nv;
+    });
+    return Object.keys(out).length ? out : undefined;
+  }
+  return value;
+}
+
 function findChangedCharIds(oldOverrides, newOverrides) {
   const ids = new Set([...Object.keys(oldOverrides || {}), ...Object.keys(newOverrides || {})]);
   const changed = [];
   ids.forEach(id => {
-    const before = stableStringify(oldOverrides ? oldOverrides[id] || null : null);
-    const after = stableStringify(newOverrides ? newOverrides[id] || null : null);
+    const beforeNorm = normalizeForCompare(oldOverrides ? oldOverrides[id] : undefined);
+    const afterNorm = normalizeForCompare(newOverrides ? newOverrides[id] : undefined);
+    const before = stableStringify(beforeNorm === undefined ? null : beforeNorm);
+    const after = stableStringify(afterNorm === undefined ? null : afterNorm);
     if (before !== after) changed.push(id);
   });
   return changed;
@@ -3809,10 +3833,33 @@ onFirebaseReady(() => {
     const remoteDeletedChars = deletedSnap.val() || {};
 
     const changedOverrideIds = findChangedCharIds(sharedOverrides, remoteOverrides);
-    const changedCustomIds = findChangedCharIds(customChars, remoteCustomChars);
+    // 주의: 여기서 비교 기준은 메모리에 떠 있는 customChars가 아니라 loadLocalCustomChars()로
+    // localStorage에서 "새로" 읽은 값이어야 한다. 직접 추가한 캐릭터를 나중에 이름/재료/등급
+    // 등으로 수정하면, 그 수정은 overrides 쪽에 저장되면서 applyAllOverrides가 메모리 위의
+    // customChars 객체도 그 자리에서 바로 고쳐버린다 — 근데 이 수정본은 Firebase의
+    // customChars 노드에는 다시 저장되지 않는다(customChars는 "처음 추가할 때" 스냅샷만
+    // 담아두는 곳이라서). 그래서 memory 위 customChars(=수정 반영됨)와 Firebase의
+    // customChars(=처음 추가했을 때 그대로)를 비교하면 한번 수정한 캐릭터는 영원히
+    // "달라짐"으로 나온다. localStorage에서 다시 읽은 값은 이 수정이 반영 안 된 원본
+    // 스냅샷이라 Firebase 쪽과 정확히 같은 기준으로 비교된다.
+    const changedCustomIds = findChangedCharIds(loadLocalCustomChars(), remoteCustomChars);
     const changedDeletedIds = findChangedCharIds(deletedChars, remoteDeletedChars);
 
     const allChangedIds = [...new Set([...changedOverrideIds, ...changedCustomIds, ...changedDeletedIds])];
+
+    // 진단용: 계속 오탐이면 정확히 뭐가 다른지 콘솔에서 바로 보이도록 남겨둔다.
+    // (F12 → 콘솔 탭에서 "[동기화 진단]"으로 시작하는 로그를 확인하면 원인을 바로 알 수 있다)
+    if (allChangedIds.length > 0) {
+      console.log('[동기화 진단] overrides 변경:', changedOverrideIds.map(id => ({
+        id, before: sharedOverrides[id], after: remoteOverrides[id]
+      })));
+      console.log('[동기화 진단] customChars 변경:', changedCustomIds.map(id => ({
+        id, before: customChars[id], after: remoteCustomChars[id]
+      })));
+      console.log('[동기화 진단] deletedChars 변경:', changedDeletedIds.map(id => ({
+        id, before: deletedChars[id], after: remoteDeletedChars[id]
+      })));
+    }
 
     if (allChangedIds.length > 0) {
       pendingRemoteOverrides = remoteOverrides;
