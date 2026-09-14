@@ -676,6 +676,14 @@
     color:var(--ink);
     font-family:inherit;
   }
+  /* 목재/골드처럼 캐릭터가 아닌 특수 재료를 검색 없이 바로 고를 수 있는 칩 목록 */
+  .picker-quickmats{
+    display:flex;
+    flex-wrap:wrap;
+    gap:5px;
+  }
+  .picker-quickmats .tag-pill{ cursor:pointer; }
+  .picker-quickmats .tag-pill:active{ background:rgba(23,63,82,0.25); }
   .picker-list{
     flex:1;
     overflow-y:auto;
@@ -694,6 +702,7 @@
     cursor:pointer;
   }
   .picker-item:active{ background:rgba(255,255,255,0.8); }
+  .picker-item-custom{ border-style:dashed; }
   .picker-item-grade{
     font-size:9px;
     font-weight:700;
@@ -1207,6 +1216,29 @@
   .addchar-field textarea{ min-height:70px; resize:vertical; }
   .addchar-row2{ display:flex; gap:8px; }
   .addchar-row2 .addchar-field{ flex:1; }
+  /* 등급 셀렉트 옆 "+새 등급" 버튼과, 눌렀을 때 나오는 이름/색상 입력 박스 */
+  .grade-select-row{ display:flex; gap:6px; align-items:center; }
+  .grade-select-row select{ flex:1; }
+  .custom-grade-box{
+    display:none;
+    flex-direction:column;
+    gap:8px;
+    margin-top:8px;
+    padding:10px;
+    border:1px dashed var(--rope);
+    border-radius:10px;
+    background:rgba(255,255,255,0.35);
+  }
+  .custom-grade-box.open{ display:flex; }
+  .custom-grade-color-row{ display:flex; align-items:center; gap:8px; }
+  .custom-grade-color-row input[type="color"]{
+    width:40px; height:32px;
+    padding:0;
+    border:1px solid var(--rope);
+    border-radius:6px;
+    background:none;
+    cursor:pointer;
+  }
   .addchar-mat-list{
     display:flex;
     flex-direction:column;
@@ -1617,6 +1649,7 @@
 <div class="picker-overlay" id="pickerOverlay">
   <div class="picker-sheet">
     <div class="picker-title" id="pickerTitle">재료로 쓸 캐릭터 선택</div>
+    <div class="picker-quickmats" id="pickerQuickMats"></div>
     <input type="text" id="pickerSearch" class="picker-search" placeholder="이름으로 검색...">
     <div class="picker-list" id="pickerList"></div>
     <button class="picker-close" id="pickerClose">닫기</button>
@@ -1638,7 +1671,23 @@
     <div class="addchar-row2">
       <div class="addchar-field">
         <label>등급 *</label>
-        <select id="newCharGrade"></select>
+        <div class="grade-select-row">
+          <select id="newCharGrade"></select>
+          <button type="button" class="edit-recipe-btn" id="newCharGradeAddBtn" title="새 등급 이름/색상 직접 추가">🎨 새 등급</button>
+        </div>
+        <div class="custom-grade-box" id="newCharGradeCustomBox">
+          <label class="edit-field-label">새 등급 이름</label>
+          <input type="text" id="newCharGradeCustomName" class="edit-name-input" maxlength="20" placeholder="예: 초월+">
+          <label class="edit-field-label">등급 색상</label>
+          <div class="custom-grade-color-row">
+            <input type="color" id="newCharGradeCustomColor" value="#a8462f">
+            <span class="none-text">카드·배지·필터 칩에 이 색이 그대로 쓰여요</span>
+          </div>
+          <div class="edit-recipe-buttons">
+            <button type="button" class="edit-name-save" id="newCharGradeCustomAdd">추가</button>
+            <button type="button" class="edit-name-cancel" id="newCharGradeCustomCancel">취소</button>
+          </div>
+        </div>
       </div>
       <div class="addchar-field">
         <label>최종수정일</label>
@@ -1811,8 +1860,85 @@ const GRADE_STYLE = {
   '불멸의': { cls: 'grade-immortal', order: 11 },
   '영원한': { cls: 'grade-eternal', order: 12 },
 };
+// =====================================================================
+// 커스텀 등급 (사용자가 이름 + 색상을 직접 정해서 새 등급을 추가할 수 있게)
+// GRADE_STYLE에 없는 등급 이름이면 여기서 등급을 찾고, 그 색으로 CSS를
+// 실시간 생성해서 카드/배지/칩 등 기존 등급 스타일이 쓰이는 모든 곳에 그대로 적용한다.
+// 계열/스킬 타입 커스텀 태그와 마찬가지로 로컬 캐시 + Firebase 동기화를 쓴다.
+// =====================================================================
+const CUSTOM_GRADES_KEY = 'wonrandy_custom_grades';
+
+function loadCustomGrades() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_GRADES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) { return []; }
+}
+function saveCustomGrades(list) {
+  try { localStorage.setItem(CUSTOM_GRADES_KEY, JSON.stringify(list)); } catch (e) {}
+}
+
+// 다른 기기에서도 같은 색으로 보이려면 id가 기기마다 달라지면 안 되므로,
+// (계열/스킬 타입처럼 push()로 임의 키를 받는 대신) 우리가 만든 id를 그대로 문서 키로 쓴다.
+function pushCustomGradeRemote(gradeObj) {
+  if (fbReady) {
+    fbDb.ref('customGrades/' + gradeObj.id).set(gradeObj).catch(err => {
+      console.error('커스텀 등급 동기화 실패 (로컬에는 저장됨):', err);
+    });
+  }
+}
+
 function gradeClass(grade) {
-  return (GRADE_STYLE[grade] && GRADE_STYLE[grade].cls) || 'grade-default';
+  if (GRADE_STYLE[grade]) return GRADE_STYLE[grade].cls;
+  const custom = loadCustomGrades().find(g => g.name === grade);
+  return custom ? 'grade-' + custom.id : 'grade-default';
+}
+
+// 정렬용 우선순위. 기본 등급은 GRADE_STYLE의 순서를, 커스텀 등급은 그 뒤(100+)를 쓴다.
+function gradeOrderOf(grade) {
+  if (GRADE_STYLE[grade]) return GRADE_STYLE[grade].order;
+  const idx = loadCustomGrades().findIndex(g => g.name === grade);
+  return idx >= 0 ? 100 + idx : 0;
+}
+
+function getAllGradeNames() {
+  return [...Object.keys(GRADE_STYLE), ...loadCustomGrades().map(g => g.name)];
+}
+
+// 배경색 밝기에 따라 배지 글자색을 흰색/짙은 잉크색 중 눈에 잘 띄는 쪽으로 고른다.
+function contrastTextColor(hex) {
+  const h = String(hex || '').replace('#', '');
+  if (h.length !== 6) return '#ffffff';
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6 ? '#1b2a3a' : '#ffffff';
+}
+
+// 커스텀 등급 각각에 대해, 기존 등급들과 똑같은 방식(카드 보더/배지/칩/모달배지/역추적)으로
+// 색이 입혀지도록 CSS를 만들어 <head>에 심는다. 등급이 추가/변경될 때마다 다시 호출해서 덮어쓴다.
+function injectCustomGradeCSS(customGrades) {
+  let styleEl = document.getElementById('customGradeStyles');
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = 'customGradeStyles';
+    document.head.appendChild(styleEl);
+  }
+  styleEl.textContent = customGrades.map(g => {
+    const cls = 'grade-' + g.id;
+    const text = contrastTextColor(g.color);
+    return `
+      .card.${cls}{ border-left-color:${g.color}; }
+      .card.${cls} .grade-tag{ background:${g.color}; color:${text}; }
+      .grade-chip.${cls}.active{ background:${g.color}; border-color:${g.color}; color:${text}; }
+      .modal-grade.${cls}{ background:${g.color}; color:${text}; }
+      .mini-chip.${cls}{ border-left-color:${g.color}; }
+      .mini-grade-tag.${cls}{ background:${g.color}; color:${text}; }
+      .usedin-item.${cls}{ border-left-color:${g.color}; }
+      .usedin-grade-tag.${cls}{ background:${g.color}; color:${text}; }
+    `;
+  }).join('\n');
 }
 
 // "궁합 좋은 캐릭터" 기능은 상위 등급 캐릭터에게만 의미가 있으므로 이 등급들에서만 노출한다.
@@ -2084,7 +2210,7 @@ function renderLineageFilter() {
 
 function renderGradeFilter() {
   const grades = [...new Set(DISPLAY_DATA.map(c => c.grade))]
-    .sort((a, b) => ((GRADE_STYLE[a]?.order)||99) - ((GRADE_STYLE[b]?.order)||99));
+    .sort((a, b) => gradeOrderOf(a) - gradeOrderOf(b));
   const wrap = document.getElementById('gradeFilter');
   wrap.innerHTML = `<span class="grade-chip ${activeGrade===null?'active':''}" data-grade="">전체</span>` +
     grades.map(g => `<span class="grade-chip ${gradeClass(g)} ${activeGrade===g?'active':''}" data-grade="${escapeHtml(g)}">${escapeHtml(g)}</span>`).join('');
@@ -2412,8 +2538,8 @@ function openModal(id) {
   // 역추적: 이 캐릭터가 재료로 쓰이는 조합들
   const usedinList = document.getElementById('usedinList');
   const usages = (usedInIndex[c.name] || []).slice().sort((a, b) => {
-    const oa = (GRADE_STYLE[a.resultGrade] && GRADE_STYLE[a.resultGrade].order) || 0;
-    const ob = (GRADE_STYLE[b.resultGrade] && GRADE_STYLE[b.resultGrade].order) || 0;
+    const oa = gradeOrderOf(a.resultGrade);
+    const ob = gradeOrderOf(b.resultGrade);
     return ob - oa; // 상위 등급이 위로
   });
   if (usages.length === 0) {
@@ -2525,7 +2651,7 @@ let editingMaterials = []; // 편집 중인 재료 배열 (저장 전까지 임�
 
 function renderGradeOptions(selectedGrade) {
   const select = document.getElementById('editGradeSelect');
-  const grades = Object.keys(GRADE_STYLE).sort((a, b) => GRADE_STYLE[a].order - GRADE_STYLE[b].order);
+  const grades = getAllGradeNames().sort((a, b) => gradeOrderOf(a) - gradeOrderOf(b));
   select.innerHTML = grades.map(g =>
     `<option value="${escapeHtml(g)}" ${g === selectedGrade ? 'selected' : ''}>${escapeHtml(g)}</option>`
   ).join('');
@@ -2573,6 +2699,15 @@ document.getElementById('editMatAdd').addEventListener('click', () => {
 
 document.getElementById('editRecipeSave').addEventListener('click', () => {
   if (!currentModalId) return;
+
+  // "+ 재료 추가"를 누르면 일단 "새 재료" 자리표시자를 넣어두고 피커를 띄우는데,
+  // 피커 바깥을 눌러 닫거나 아무것도 고르지 않으면 이 자리표시자가 그대로 남는다.
+  // 이 상태로 저장하면 "새 재료"라는 문자열이 진짜 재료인 것처럼 그대로 박혀버리므로 막는다.
+  if (editingMaterials.includes('새 재료')) {
+    alert('아직 캐릭터를 고르지 않은 재료 슬롯이 있어요.\n재료 칸을 눌러 캐릭터를 선택하거나, ✕ 버튼으로 그 슬롯을 지운 뒤 다시 저장해주세요.');
+    return;
+  }
+
   const newGrade = document.getElementById('editGradeSelect').value;
   const charName = byId[currentModalId].name;
 
@@ -2598,13 +2733,43 @@ document.getElementById('editRecipeReset').addEventListener('click', () => {
   location.reload();
 });
 
-// --- 재료 검색 피커 (콜백 방식: 기존 캐릭터 재료수정 / 새 캐릭터 추가 양쪽에서 재사용) ---
-let pickerOnSelect = null; // (선택된 캐릭터 이름) => void
+// --- 재료 검색 피커 (콜백 방식: 기존 캐릭터 재료수정 / 새 캐릭터 추가 / 궁합 캐릭터 선택 세 곳에서 재사용) ---
+let pickerOnSelect = null; // (선택된 이름) => void
+let pickerAllowFreeText = true; // 재료 선택 용도일 때만 true. 궁합 캐릭터 선택은 실제 캐릭터만 골라야 하니 false로 연다.
 
-function openPickerWithCallback(onSelect, title) {
+// 목재/골드/특성포인트처럼 캐릭터가 아닌 "재화성" 재료는 실제 캐릭터 목록에서 검색해도
+// 안 나오니, 실제 데이터에 자주 등장하는 것들을 미리 버튼으로 꺼내 바로 고를 수 있게 한다.
+const QUICK_SPECIAL_MATERIALS = [
+  '목재 x3', '목재 x5', '목재 x10',
+  '5,000골드', '30,000골드',
+  '특성포인트 x4',
+  '초월 쿠마', '그린블러드',
+  '해적선', '고대의 배', '레일리', '슈스이'
+];
+
+function renderPickerQuickMats() {
+  const wrap = document.getElementById('pickerQuickMats');
+  if (!pickerAllowFreeText) {
+    wrap.innerHTML = '';
+    return;
+  }
+  wrap.innerHTML = QUICK_SPECIAL_MATERIALS.map(m =>
+    `<span class="tag-pill" data-name="${escapeHtml(m)}">${escapeHtml(m)}</span>`
+  ).join('');
+  wrap.querySelectorAll('.tag-pill').forEach(el => {
+    el.addEventListener('click', () => {
+      if (pickerOnSelect) pickerOnSelect(el.dataset.name);
+      closePicker();
+    });
+  });
+}
+
+function openPickerWithCallback(onSelect, title, allowFreeText) {
   pickerOnSelect = onSelect;
+  pickerAllowFreeText = allowFreeText !== false;
   document.getElementById('pickerTitle').textContent = title || '재료로 쓸 캐릭터 선택';
   document.getElementById('pickerSearch').value = '';
+  renderPickerQuickMats();
   renderPickerList('');
   document.getElementById('pickerOverlay').classList.add('open');
   setTimeout(() => document.getElementById('pickerSearch').focus(), 50);
@@ -2632,12 +2797,25 @@ function renderPickerList(query) {
   }
   results = results.slice(0, 60); // 너무 길어지지 않게 상위 60개만
 
-  if (results.length === 0) {
+  const trimmed = query.trim();
+  // 캐릭터가 아닌 재료(목재, 골드, 처음 보는 특수 아이템 등)는 검색해도 안 나올 수 있으니,
+  // 입력한 문구를 그대로 재료로 쓸 수 있는 옵션을 목록 맨 위에 보여준다.
+  let customHtml = '';
+  if (pickerAllowFreeText && trimmed) {
+    customHtml = `
+      <div class="picker-item picker-item-custom" data-name="${escapeHtml(trimmed)}">
+        <span class="picker-item-grade">직접입력</span>
+        <span class="picker-item-name">"${escapeHtml(trimmed)}" 그대로 재료로 추가</span>
+      </div>
+    `;
+  }
+
+  if (results.length === 0 && !customHtml) {
     list.innerHTML = `<span class="none-text">검색 결과가 없습니다</span>`;
     return;
   }
 
-  list.innerHTML = results.map(c => `
+  list.innerHTML = customHtml + results.map(c => `
     <div class="picker-item" data-name="${escapeHtml(c.name)}">
       <span class="picker-item-grade ${gradeClass(c.grade)}">${escapeHtml(c.grade)}</span>
       <span class="picker-item-name">${escapeHtml(c.name)}</span>
@@ -2826,7 +3004,7 @@ function renderSynergyGradeBreakdown(wrapId, listId, mainChar, synergyNames) {
   }
 
   const totals = computeSynergyGradeBreakdown(mainChar, synergyNames);
-  const grades = Object.keys(totals).sort((a, b) => ((GRADE_STYLE[a]?.order)||99) - ((GRADE_STYLE[b]?.order)||99));
+  const grades = Object.keys(totals).sort((a, b) => gradeOrderOf(a) - gradeOrderOf(b));
   if (grades.length === 0) {
     wrap.style.display = 'none';
     list.innerHTML = '';
@@ -2854,7 +3032,7 @@ function renderEditSynergyList() {
       openPickerWithCallback((name) => {
         editingSynergy[idx] = name;
         renderEditSynergyList();
-      }, '궁합 좋은 캐릭터 선택');
+      }, '궁합 좋은 캐릭터 선택', false);
     });
   });
   list.querySelectorAll('.edit-mat-item-remove').forEach(el => {
@@ -2891,14 +3069,14 @@ document.getElementById('editSynergyAdd').addEventListener('click', () => {
   openPickerWithCallback((name) => {
     editingSynergy[idx] = name;
     renderEditSynergyList();
-  }, '궁합 좋은 캐릭터 선택');
+  }, '궁합 좋은 캐릭터 선택', false);
 });
 
 document.getElementById('editSynergySave').addEventListener('click', () => {
   if (!currentModalId) return;
   const charName = byId[currentModalId].name;
-  // 자기 자신 참조와 중복은 제외
-  const cleaned = [...new Set(editingSynergy.filter(n => n && n !== charName))];
+  // 자기 자신 참조, 중복, 그리고 아직 캐릭터를 고르지 않은 자리표시자("새 캐릭터")는 제외
+  const cleaned = [...new Set(editingSynergy.filter(n => n && n !== charName && n !== '새 캐릭터'))];
 
   lastSavedByMe = { id: currentModalId, at: Date.now() };
   pushOverride(currentModalId, { synergy: cleaned });
@@ -2922,8 +3100,10 @@ let newCharMaterials = [];
 
 function renderNewCharGradeOptions() {
   const select = document.getElementById('newCharGrade');
-  const grades = Object.keys(GRADE_STYLE).sort((a, b) => GRADE_STYLE[a].order - GRADE_STYLE[b].order);
+  const prevSelected = select.value;
+  const grades = getAllGradeNames().sort((a, b) => gradeOrderOf(a) - gradeOrderOf(b));
   select.innerHTML = grades.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
+  if (prevSelected && grades.includes(prevSelected)) select.value = prevSelected;
 }
 
 function renderNewCharMatList() {
@@ -2965,7 +3145,47 @@ function resetNewCharForm() {
   newCharMaterials = [];
   renderNewCharMatList();
   renderNewCharGradeOptions();
+  document.getElementById('newCharGradeCustomBox').classList.remove('open');
 }
+
+// --- 새 등급 직접 추가 (이름 + 색상) ---
+document.getElementById('newCharGradeAddBtn').addEventListener('click', () => {
+  document.getElementById('newCharGradeCustomName').value = '';
+  document.getElementById('newCharGradeCustomColor').value = '#a8462f';
+  document.getElementById('newCharGradeCustomBox').classList.add('open');
+});
+
+document.getElementById('newCharGradeCustomCancel').addEventListener('click', () => {
+  document.getElementById('newCharGradeCustomBox').classList.remove('open');
+});
+
+document.getElementById('newCharGradeCustomAdd').addEventListener('click', () => {
+  const name = document.getElementById('newCharGradeCustomName').value.trim();
+  if (!name) return;
+  const color = document.getElementById('newCharGradeCustomColor').value;
+
+  const existing = loadCustomGrades();
+  if (GRADE_STYLE[name] || existing.some(g => g.name === name)) {
+    alert('이미 있는 등급 이름이에요. 다른 이름을 입력해주세요.');
+    return;
+  }
+
+  const gradeObj = {
+    id: 'gc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    name,
+    color
+  };
+  const updated = [...existing, gradeObj];
+  saveCustomGrades(updated);
+  pushCustomGradeRemote(gradeObj);
+  injectCustomGradeCSS(updated);
+
+  renderNewCharGradeOptions();
+  document.getElementById('newCharGrade').value = name;
+  renderGradeFilter();
+
+  document.getElementById('newCharGradeCustomBox').classList.remove('open');
+});
 
 function openAddCharForm() {
   resetNewCharForm();
@@ -2999,6 +3219,11 @@ document.getElementById('newCharSubmit').addEventListener('click', () => {
   const name = document.getElementById('newCharName').value.trim();
   if (!name) {
     alert('캐릭터 이름을 입력해주세요.');
+    return;
+  }
+  // 재료 자리표시자("새 재료")를 그대로 두고 저장하면 실제 재료 이름인 것처럼 박혀버리므로 막는다.
+  if (newCharMaterials.includes('새 재료')) {
+    alert('아직 캐릭터를 고르지 않은 재료 슬롯이 있어요.\n재료 칸을 눌러 캐릭터를 선택하거나, ✕ 버튼으로 그 슬롯을 지운 뒤 다시 추가해주세요.');
     return;
   }
   const grade = document.getElementById('newCharGrade').value;
@@ -3465,6 +3690,7 @@ document.getElementById('dismissInstall').addEventListener('click', () => {
 });
 
 // --- 초기 렌더 ---
+injectCustomGradeCSS(loadCustomGrades());
 renderGradeFilter();
 renderLineageFilter();
 renderSkillTypeFilter();
@@ -3623,6 +3849,41 @@ onFirebaseReady(() => {
       renderLineageFilter();
     }
   }, (err) => console.error('커스텀 계열 동기화 실패:', err));
+});
+
+// --- Firebase: 커스텀 등급 동기화 ---
+// 등급은 이름 문자열만이 아니라 색상까지 같이 맞아야 하므로, 위의 라벨 배열 병합과
+// 달리 id를 기준으로 {id, name, color} 객체 전체를 병합한다.
+function mergeRemoteGradesIntoLocal(remoteObj) {
+  const local = loadCustomGrades();
+  const byId = {};
+  local.forEach(g => { byId[g.id] = g; });
+
+  let changed = false;
+  Object.values(remoteObj || {}).forEach(g => {
+    if (!g || !g.id || !g.name || !g.color) return;
+    const existing = byId[g.id];
+    if (!existing || existing.name !== g.name || existing.color !== g.color) {
+      byId[g.id] = g;
+      changed = true;
+    }
+  });
+
+  if (changed) {
+    saveCustomGrades(Object.values(byId));
+  }
+  return changed;
+}
+
+onFirebaseReady(() => {
+  fbDb.ref('customGrades').on('value', (snap) => {
+    if (mergeRemoteGradesIntoLocal(snap.val())) {
+      const grades = loadCustomGrades();
+      injectCustomGradeCSS(grades);
+      renderGradeFilter();
+      runSearch();
+    }
+  }, (err) => console.error('커스텀 등급 동기화 실패:', err));
 });
 
 </script>
