@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wonrandy-dogam-v25';
+const CACHE_NAME = 'wonrandy-dogam-v26';
 const STATIC_ASSETS = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', (event) => {
