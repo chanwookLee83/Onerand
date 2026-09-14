@@ -3707,12 +3707,26 @@ if ('serviceWorker' in navigator) {
 // --- Firebase: 공유 수정 데이터 동기화 ---
 // 앱을 열 때 딱 한 번, 그동안 다른 사람이 고친 내용이 있는지 Firebase에서 확인한다.
 // 변경이 있으면 화면을 바로 바꾸지 않고 확인창을 띄워서, "지금 업데이트"를 눌러야 반영한다.
+// 객체 키 순서에 상관없이 내용만 같으면 같은 문자열이 나오도록 키를 정렬해서 직렬화한다.
+// (일반 JSON.stringify는 키 순서가 다르면 내용이 같아도 다른 문자열을 만들어버린다.
+// 로컬 캐시는 이 기기에서 필드를 수정한 순서대로 키가 쌓이고, Firebase에서 내려받은
+// 값은 그 순서가 보장되지 않아서, 실제로는 아무것도 안 바뀌었는데도 "변경됨"으로
+// 잘못 판정해 앱을 켤 때마다 업데이트 알림이 뜨는 원인이었다.)
+function stableStringify(value) {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    return '[' + value.map(stableStringify).join(',') + ']';
+  }
+  const keys = Object.keys(value).sort();
+  return '{' + keys.map(k => JSON.stringify(k) + ':' + stableStringify(value[k])).join(',') + '}';
+}
+
 function findChangedCharIds(oldOverrides, newOverrides) {
   const ids = new Set([...Object.keys(oldOverrides || {}), ...Object.keys(newOverrides || {})]);
   const changed = [];
   ids.forEach(id => {
-    const before = JSON.stringify(oldOverrides ? oldOverrides[id] || null : null);
-    const after = JSON.stringify(newOverrides ? newOverrides[id] || null : null);
+    const before = stableStringify(oldOverrides ? oldOverrides[id] || null : null);
+    const after = stableStringify(newOverrides ? newOverrides[id] || null : null);
     if (before !== after) changed.push(id);
   });
   return changed;
