@@ -939,6 +939,22 @@
     gap:10px;
     flex-wrap:wrap;
   }
+  /* 궁합 좋은 캐릭터 한 명당 "이름 칩 + 그 캐릭터의 조합 재료" 묶음 */
+  .synergy-char-block{
+    width:100%;
+    margin-bottom:10px;
+    padding-bottom:10px;
+    border-bottom:1px dashed rgba(138,106,60,0.25);
+  }
+  .synergy-char-block:last-child{
+    margin-bottom:0;
+    padding-bottom:0;
+    border-bottom:none;
+  }
+  .synergy-char-mats{
+    margin-top:6px;
+    padding-left:6px;
+  }
   .mini-chip{
     display:flex;
     align-items:center;
@@ -1543,6 +1559,14 @@
         <button class="edit-recipe-btn" id="editSynergyBtn" title="궁합 좋은 캐릭터 추가/수정">✏️ 수정</button>
       </div>
       <div class="recipe-row" id="synergyRow"></div>
+      <div id="synergySubMatWrap">
+        <label class="edit-field-label">🔩 궁합 하위 재료 합산</label>
+        <div class="submat-row" id="synergySubMat"></div>
+      </div>
+      <div id="synergyGradeWrap">
+        <label class="edit-field-label">🏅 궁합 재료 등급 구성 (조합 트리 전체에 들어가는 캐릭터 등급별 개수)</label>
+        <div class="recipe-row" id="synergyGrade"></div>
+      </div>
       <div id="synergyStatsWrap">
         <label class="edit-field-label">📊 궁합 합산 스탯</label>
         <div class="skilltype-display" id="synergyStats"></div>
@@ -1553,6 +1577,14 @@
         <div class="edit-mat-list" id="editSynergyList"></div>
         <div class="edit-mat-actions">
           <button class="edit-mat-add" id="editSynergyAdd">+ 캐릭터 추가</button>
+        </div>
+        <div id="editSynergySubMatWrap">
+          <label class="edit-field-label">🔩 궁합 하위 재료 합산 (미리보기)</label>
+          <div class="submat-row" id="editSynergySubMat"></div>
+        </div>
+        <div id="editSynergyGradeWrap">
+          <label class="edit-field-label">🏅 궁합 재료 등급 구성 (미리보기)</label>
+          <div class="recipe-row" id="editSynergyGrade"></div>
         </div>
         <div id="editSynergyStatsWrap">
           <label class="edit-field-label">📊 궁합 합산 스탯 (미리보기)</label>
@@ -2106,6 +2138,35 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
+// 이름 하나를 mini-chip HTML로 만든다. 실제 캐릭터로 연결되면 등급 배지가 붙고 클릭 가능해지며,
+// 문구뿐인 재료(예: "5,000골드", "목재 x5")는 연결 없이 텍스트만 보여준다.
+// (조합 재료 / 등급 섹션과 궁합 좋은 캐릭터 목록 양쪽에서 재사용)
+function miniChipHtml(name) {
+  const id = nameToId[name];
+  const ch = id ? byId[id] : null;
+  const gCls = ch ? gradeClass(ch.grade) : '';
+  const cls = id ? `mini-chip ${gCls}` : 'mini-chip no-link';
+  const attr = id ? `data-id="${id}"` : '';
+  const badge = ch ? `<span class="mini-grade-tag ${gCls}">${escapeHtml(ch.grade)}</span>` : '';
+  return `<span class="${cls}" ${attr}>${badge}${escapeHtml(name)}</span>`;
+}
+
+// 재료 배열을 "재료1 + 재료2 + ..." 형태의 mini-chip 행 HTML로 만든다. 재료가 없으면 빈 문자열.
+function materialsChipsHtml(materials) {
+  if (!materials || materials.length === 0) return '';
+  return materials.map(miniChipHtml).join('<span class="plus-sep">+</span>');
+}
+
+// container 안의 모든 mini-chip(실제 캐릭터로 연결된 것)에 "그 캐릭터 모달 열기" 클릭을 걸어준다.
+function bindMiniChipClicks(container) {
+  container.querySelectorAll('.mini-chip[data-id]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openModal(el.dataset.id);
+    });
+  });
+}
+
 // --- 동기화 알림 토스트 ---
 // kind: 'mine' (내가 방금 저장함) | 'remote' (다른 사람이 고쳐서 실시간으로 들어옴)
 function showSyncToast(message, kind) {
@@ -2258,26 +2319,9 @@ function openModal(id) {
 
   // 조합 재료
   const recipeRow = document.getElementById('recipeRow');
-  if (!c.materials || c.materials.length === 0) {
-    recipeRow.innerHTML = `<span class="none-text">조합 재료 정보 없음 (단독 획득)</span>`;
-  } else {
-    const chips = c.materials.map((matName) => {
-      const matId = nameToId[matName];
-      const matChar = matId ? byId[matId] : null;
-      const gCls = matChar ? gradeClass(matChar.grade) : '';
-      const cls = matId ? `mini-chip ${gCls}` : 'mini-chip no-link';
-      const attr = matId ? `data-id="${matId}"` : '';
-      const badge = matChar ? `<span class="mini-grade-tag ${gCls}">${escapeHtml(matChar.grade)}</span>` : '';
-      return `<span class="${cls}" ${attr}>${badge}${escapeHtml(matName)}</span>`;
-    });
-    recipeRow.innerHTML = chips.join('<span class="plus-sep">+</span>');
-    recipeRow.querySelectorAll('.mini-chip[data-id]').forEach(el => {
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openModal(el.dataset.id);
-      });
-    });
-  }
+  const recipeHtml = materialsChipsHtml(c.materials);
+  recipeRow.innerHTML = recipeHtml || `<span class="none-text">조합 재료 정보 없음 (단독 획득)</span>`;
+  bindMiniChipClicks(recipeRow);
 
   // 하위재료 (재료를 한 번 더 분해한 기본단위 환산)
   const subSection = document.getElementById('subMatSection');
@@ -2326,25 +2370,25 @@ function openModal(id) {
     const synergyRow = document.getElementById('synergyRow');
     const synergyList = c.synergy || [];
     if (synergyList.length > 0) {
-      const chips = synergyList.map((sName) => {
+      // 궁합 캐릭터 이름 밑에, 그 캐릭터를 만드는 데 필요한 조합 재료도 같이 보여준다
+      // (모달을 따로 열어보지 않아도 바로 재료 구성이 보이도록).
+      synergyRow.innerHTML = synergyList.map((sName) => {
         const sId = nameToId[sName];
         const sChar = sId ? byId[sId] : null;
-        const gCls = sChar ? gradeClass(sChar.grade) : '';
-        const cls = sId ? `mini-chip ${gCls}` : 'mini-chip no-link';
-        const attr = sId ? `data-id="${sId}"` : '';
-        const badge = sChar ? `<span class="mini-grade-tag ${gCls}">${escapeHtml(sChar.grade)}</span>` : '';
-        return `<span class="${cls}" ${attr}>${badge}${escapeHtml(sName)}</span>`;
-      });
-      synergyRow.innerHTML = chips.join('');
-      synergyRow.querySelectorAll('.mini-chip[data-id]').forEach(el => {
-        el.addEventListener('click', (e) => {
-          e.stopPropagation();
-          openModal(el.dataset.id);
-        });
-      });
+        const headerChip = `<div class="recipe-row">${miniChipHtml(sName)}</div>`;
+        let matsRow = '';
+        if (sChar) {
+          const matsHtml = materialsChipsHtml(sChar.materials);
+          matsRow = `<div class="recipe-row synergy-char-mats">${matsHtml || `<span class="none-text">조합 재료 정보 없음 (단독 획득)</span>`}</div>`;
+        }
+        return `<div class="synergy-char-block">${headerChip}${matsRow}</div>`;
+      }).join('');
+      bindMiniChipClicks(synergyRow);
     } else {
       synergyRow.innerHTML = `<span class="none-text">아직 등록된 궁합 캐릭터가 없습니다. ✏️ 수정 버튼을 눌러 추가해보세요.</span>`;
     }
+    renderSynergySubMat('synergySubMatWrap', 'synergySubMat', c, synergyList);
+    renderSynergyGradeBreakdown('synergyGradeWrap', 'synergyGrade', c, synergyList);
     renderSynergyStats('synergyStatsWrap', 'synergyStats', c, synergyList);
   } else {
     synergySection.style.display = 'none';
@@ -2686,6 +2730,115 @@ function renderSynergyStats(wrapId, listId, mainChar, synergyNames) {
   }).join('');
 }
 
+// 캐릭터 자신 + 궁합 캐릭터들의 하위 재료(subMaterials, 분해 시 환산 값)를 이름별로 합산한다.
+// 각 항목은 보통 "총병 3"처럼 "이름 + 수량"으로 끝나는데, 이 경우 수량을 뽑아 같은 이름끼리 더하고,
+// "레일리"나 "해적선"처럼 수량이 안 붙은 항목은 등장할 때마다 1개로 세어 더한다.
+function computeSynergySubMatSummary(mainChar, synergyNames) {
+  const chars = [mainChar, ...synergyNames.map(n => byId[nameToId[n]]).filter(Boolean)];
+  const totals = {}; // name -> qty
+
+  chars.forEach(ch => {
+    (ch.subMaterials || []).forEach(entry => {
+      const str = String(entry).trim();
+      const m = str.match(/^(.*\S)\s+(\d+)$/);
+      const name = m ? m[1] : str;
+      const qty = m ? parseInt(m[2], 10) : 1;
+      totals[name] = (totals[name] || 0) + qty;
+    });
+  });
+
+  return totals;
+}
+
+function renderSynergySubMat(wrapId, listId, mainChar, synergyNames) {
+  const wrap = document.getElementById(wrapId);
+  const list = document.getElementById(listId);
+  if (!wrap || !list) return;
+
+  if (!synergyNames || synergyNames.length === 0) {
+    wrap.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+
+  const totals = computeSynergySubMatSummary(mainChar, synergyNames);
+  const entries = Object.entries(totals);
+  if (entries.length === 0) {
+    wrap.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+
+  wrap.style.display = '';
+  list.innerHTML = entries.map(([name, qty]) =>
+    `<span class="sub-chip">${escapeHtml(name)} ${qty}</span>`
+  ).join('');
+}
+
+// 캐릭터 하나의 조합 트리를 재귀적으로 훑어서, 재료로 쓰이는 모든 캐릭터를
+// 등급별로 몇 개씩 소모하는지 센다. subMaterials(하위 재료 합산)는 맨 밑바닥
+// 안흔함/흔함 단위로만 환산된 값이라, "특별함/희귀함/전설적인 같은 중간 등급
+// 캐릭터가 트리 전체에 몇 개나 들어가는지"는 이 함수로 따로 집계해야 한다.
+// (사이클 방지용으로 재귀 깊이를 제한한다 - 정상적인 데이터라면 걸릴 일이 없다.)
+function computeGradeMaterialBreakdown(charId, counts, depth) {
+  counts = counts || {};
+  depth = depth || 0;
+  if (depth > 20) return counts;
+
+  const c = byId[charId];
+  if (!c) return counts;
+
+  (c.materials || []).forEach(matName => {
+    const matId = nameToId[matName];
+    if (!matId) return; // 이름만 있고 실제 캐릭터로 못 찾으면(문구형 재료 등) 등급 집계 대상 아님
+    const matChar = byId[matId];
+    if (!matChar) return;
+
+    counts[matChar.grade] = (counts[matChar.grade] || 0) + 1;
+    computeGradeMaterialBreakdown(matId, counts, depth + 1);
+  });
+
+  return counts;
+}
+
+// 캐릭터 자신 + 궁합 캐릭터들 각각의 조합 트리를 모두 훑어서 등급별 개수를 합산한다.
+function computeSynergyGradeBreakdown(mainChar, synergyNames) {
+  const ids = [mainChar.id, ...synergyNames.map(n => nameToId[n]).filter(Boolean)];
+  const totals = {};
+  ids.forEach(id => {
+    const perChar = computeGradeMaterialBreakdown(id);
+    Object.entries(perChar).forEach(([grade, qty]) => {
+      totals[grade] = (totals[grade] || 0) + qty;
+    });
+  });
+  return totals;
+}
+
+function renderSynergyGradeBreakdown(wrapId, listId, mainChar, synergyNames) {
+  const wrap = document.getElementById(wrapId);
+  const list = document.getElementById(listId);
+  if (!wrap || !list) return;
+
+  if (!synergyNames || synergyNames.length === 0) {
+    wrap.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+
+  const totals = computeSynergyGradeBreakdown(mainChar, synergyNames);
+  const grades = Object.keys(totals).sort((a, b) => ((GRADE_STYLE[a]?.order)||99) - ((GRADE_STYLE[b]?.order)||99));
+  if (grades.length === 0) {
+    wrap.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+
+  wrap.style.display = '';
+  list.innerHTML = grades.map(g =>
+    `<span class="mini-grade-tag ${gradeClass(g)}">${escapeHtml(g)} ${totals[g]}</span>`
+  ).join('');
+}
+
 function renderEditSynergyList() {
   const list = document.getElementById('editSynergyList');
   list.innerHTML = editingSynergy.map((name, idx) => `
@@ -2713,6 +2866,8 @@ function renderEditSynergyList() {
   });
 
   if (currentModalId && byId[currentModalId]) {
+    renderSynergySubMat('editSynergySubMatWrap', 'editSynergySubMat', byId[currentModalId], editingSynergy);
+    renderSynergyGradeBreakdown('editSynergyGradeWrap', 'editSynergyGrade', byId[currentModalId], editingSynergy);
     renderSynergyStats('editSynergyStatsWrap', 'editSynergyStats', byId[currentModalId], editingSynergy);
   }
 }
